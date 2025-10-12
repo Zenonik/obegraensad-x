@@ -1,27 +1,38 @@
-#ifndef SETTINGS_MANAGER_H
-#define SETTINGS_MANAGER_H
+#pragma once
 
 #include <Arduino.h>
 #include <EEPROM.h>
-#include "config.h"   // enthält EEPROM_MAGIC und EEPROM_SIZE
+#include "config.h"
+
+// EEPROM-Konfiguration
+#define EEPROM_MAGIC 0x42AF
+#define EEPROM_VERSION 1
+#define EEPROM_ADDR 0
+#define EEPROM_SIZE 64
+
+// Defaultwerte
+constexpr uint8_t DEFAULT_BRIGHTNESS = 100;
+constexpr uint8_t DEFAULT_MODE = 0;
+constexpr bool DEFAULT_AUTOSYNC = true;
 
 struct Settings {
-    uint8_t brightness;     // Helligkeit (10–255)
-    uint8_t displayMode;    // Anzeigemodus (0–2)
-    bool autoSync;          // Automatische Synchronisation
-    uint32_t magic;         // Prüfsignatur zur Validierung
+    uint8_t version;
+    uint8_t brightness;
+    uint8_t displayMode;
+    bool autoSync;
+    uint16_t magic;
 };
 
 class SettingsManager {
 public:
     SettingsManager();
 
-    bool begin();       // Initialisiert EEPROM und lädt Einstellungen
-    void load();        // Lädt Daten aus EEPROM
-    void save();        // Schreibt aktuelle Einstellungen in EEPROM
-    void reset();       // Setzt Standardwerte und speichert sie
+    bool begin();
+    void load();
+    void save();
+    void reset();
 
-    // Zugriffsmethoden
+    // Getter / Setter
     uint8_t getBrightness();
     void setBrightness(uint8_t value);
 
@@ -33,10 +44,7 @@ public:
 
 private:
     Settings settings;
-    bool validate();          // Überprüft Konsistenz und Gültigkeit der Daten
-    const int EEPROM_ADDR = 0; // Startadresse des Settings-Blocks im EEPROM
+    bool validate();   // nur intern
 };
 
 extern SettingsManager settingsManager;
-
-#endif

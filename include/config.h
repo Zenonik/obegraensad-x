@@ -1,5 +1,4 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 #define P_EN   5    // OE / Enable
 #define P_DI   23   // Data
@@ -10,8 +9,6 @@
 #define DISPLAY_WIDTH 16
 #define DISPLAY_HEIGHT 16
 
-#pragma once
-
 #define ROTATE_DISPLAY
 
 #define NTP_SERVER "pool.ntp.org"
@@ -21,14 +18,4 @@
 
 #define AP_NAME "OBEGRÄNSAD-X"
 #define AP_PASSWORD ""
-
 #define WEB_SERVER_PORT 80
-
-// ---------------------------------------------------
-// EEPROM-Konfiguration
-// ---------------------------------------------------
-#define EEPROM_SIZE 512           // Gesamtgröße
-#define EEPROM_MAGIC 0xABCD1234   // Magic für SettingsManager
-// (Feste Adressen sind NICHT nötig – SettingsManager verwaltet alles selbst)
-
-#endif

@@ -28,7 +28,7 @@ public:
     void testPixelMapping();
     void lineAnimation();
     void circleAnimation();
-    void drawWeather(float temp, const String& cond, WeatherMode mode);
+    void drawWeather(float temp, const String& cond, WeatherMode mode); // Original
 
     // 🌀 Neue asynchrone Startup-Animation
     void startAsyncAnimation();

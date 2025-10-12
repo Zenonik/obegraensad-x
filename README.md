@@ -1,16 +1,30 @@
-# X-Clock für ESP32
+# obegraensad-x für ESP32
 
-WiFi-Uhr basierend auf IKEA OBEGRÄNSAD mit ESP32 (ELEGOO Board)
+Smarte WiFi-Uhr basierend auf IKEA OBEGRÄNSAD mit ESP32 (ELEGOO Board)
 
 ## Features
 
 - WiFi Manager mit Captive Portal für einfache WLAN-Einrichtung
 - Webinterface zur Konfiguration über Browser
-- NTP Zeit-Synchronisation mit automatischer Aktualisierung
-- Mehrere Anzeigemodi: Uhrzeit, Sekunden, Datum
-- Helligkeitsregelung über Webinterface
+- NTP Zeit-Synchronisation mit automatischer Aktualisierung (ntp.org)
+- Mehrere Anzeigemodi (siehe Anzeigemodi)
 - Button-Steuerung für Modus-Wechsel
-- Persistente Einstellungen in EEPROM
+- Persistente Einstellungen in EEPROM (Modus, Helligkeit, etc.)
+
+## Todos:
+- [ ] #1
+- [ ] #2
+- [ ] #3
+- [ ] #4
+- [ ] #5
+- [ ] #6
+- [ ] #7
+- [ ] #8
+- [ ] #9
+- [ ] #10
+- [ ] #11
+- [ ] #12
+- [ ] #13
 
 ## Hardware
 
@@ -36,6 +50,7 @@ GPIO 23    →  Button (P_KEY)
 
 - Visual Studio Code installieren
 - PlatformIO Extension installieren
+- pnpm
 
 ### 2. Projekt kompilieren
 
@@ -67,7 +82,7 @@ Die IP-Adresse wird im Serial Monitor angezeigt.
 ### Funktionen
 
 - Helligkeit einstellen (10-255)
-- Anzeigemodus wählen (Uhrzeit, Sekunden, Datum)
+- Anzeigemodus wählen (Siehe oben)
 - Gerät neu starten
 - Verbindungsinformationen anzeigen
 
@@ -80,9 +95,9 @@ Kurzer Druck → Wechselt zwischen den Anzeigemodi
 - **Modus 1:** Uhrzeit (HH:MM)
 - **Modus 2:** Sekunden
 - **Modus 3:** Datum (TT.MM)
-- **Modus 4:** Wetter
-- **Modus 5:** Display aus
-
+- **Modus 4:** Wetter (Temperatur & Pixelart im auto. wechsel)
+- **Modus 5:** Automatikmodus Uhrzeit/Sekunden (Sekunden werden jeweils 5 Sekunden zur halben und vollen Minute angezeigt)
+- **Modus 6:** Display aus
 
 ## Zeitzone anpassen
 
@@ -137,4 +152,5 @@ Angepasst für ESP32 mit modernem Webinterface und WiFiManager.
 
 ## Lizenz
 
-Open Source - Frei verwendbar für private und kommerzielle Projekte.
+Genaue Lizenz ist zu klären!
+Open Source - Frei verwendbar für private aber NICHT für kommerzielle Projekte.
