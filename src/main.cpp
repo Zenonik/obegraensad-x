@@ -114,7 +114,7 @@ void updateDisplay() {
 
     case 1: // Sekunden
         display.clear();
-        display.drawDigit(timeManager.getSecond() / 10, 3, 5);
+        display.drawDigit(timeManager.getSecond() / 10, 2, 5);
         display.drawDigit(timeManager.getSecond() % 10, 9, 5);
         display.update();
         break;
@@ -122,11 +122,11 @@ void updateDisplay() {
     case 2: // Datum TT.MM
         display.clear();
         display.drawDigit(timeManager.getDay() / 10, 2, 0);
-        display.drawDigit(timeManager.getDay() % 10, 8, 0);
+        display.drawDigit(timeManager.getDay() % 10, 9, 0);
         display.setPixel(8, 6, true);
         display.setPixel(9, 6, true);
         display.drawDigit(timeManager.getMonth() / 10, 2, 9);
-        display.drawDigit(timeManager.getMonth() % 10, 8, 9);
+        display.drawDigit(timeManager.getMonth() % 10, 9, 9);
         display.update();
         break;
 

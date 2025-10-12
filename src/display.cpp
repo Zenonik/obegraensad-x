@@ -68,7 +68,14 @@ void Display::setBrightness(uint8_t b)
 void Display::setPixel(uint8_t x, uint8_t y, bool state)
 {
     if (x < 16 && y < 16)
+    {
+#ifdef ROTATE_DISPLAY
+        // Drehung um 180 Grad
+        x = 15 - x;
+        y = 15 - y;
+#endif
         framebuffer[y][x] = state ? brightness : 0;
+    }
 }
 
 int Display::mapToHardwareIndex(uint8_t x, uint8_t y)
@@ -136,9 +143,9 @@ void Display::drawTime(uint8_t hour, uint8_t minute)
 {
     clear();
     drawDigit(hour / 10, 2, 0);
-    drawDigit(hour % 10, 8, 0);
+    drawDigit(hour % 10, 9, 0);
     drawDigit(minute / 10, 2, 9);
-    drawDigit(minute % 10, 8, 9);
+    drawDigit(minute % 10, 9, 9);
     update();
 }
 

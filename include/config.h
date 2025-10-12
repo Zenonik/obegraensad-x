@@ -10,6 +10,10 @@
 #define DISPLAY_WIDTH 16
 #define DISPLAY_HEIGHT 16
 
+#pragma once
+
+#define ROTATE_DISPLAY
+
 #define NTP_SERVER "pool.ntp.org"
 #define TIMEZONE "CET-1CEST,M3.5.0/02,M10.5.0/03"
 
