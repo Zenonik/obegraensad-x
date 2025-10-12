@@ -40,7 +40,7 @@ void setup() {
     }
 
     timeManager.begin();
-    weatherManager.begin("Detmold");
+    weatherManager.begin(CITY);
     webServer.begin();
 
     Serial.println("Ready: http://" + wifiConnection.getIP());

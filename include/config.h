@@ -17,6 +17,8 @@
 #define NTP_SERVER "pool.ntp.org"
 #define TIMEZONE "CET-1CEST,M3.5.0/02,M10.5.0/03"
 
+#define CITY "Detmold"  // für Wetter-API
+
 #define AP_NAME "OBEGRÄNSAD-X"
 #define AP_PASSWORD ""
 

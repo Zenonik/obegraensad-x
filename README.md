@@ -40,7 +40,7 @@ GPIO 23    →  Button (P_KEY)
 ### 2. Projekt kompilieren
 
 \`\`\`bash
-cd esp32-xclock
+cd obegraensad-x
 pio run
 pio run --target upload
 pio device monitor
@@ -50,8 +50,7 @@ pio device monitor
 
 1. ESP32 mit Strom versorgen
 2. Captive Portal öffnet sich automatisch
-   - SSID: `X-Clock-Setup`
-   - Passwort: `xclock123`
+   - SSID: `OBEGRÄNSAD-X`
 3. WLAN-Zugangsdaten eingeben
 4. Fertig! Die Uhr verbindet sich und zeigt die Zeit an
 
@@ -78,18 +77,31 @@ Kurzer Druck → Wechselt zwischen den Anzeigemodi
 
 ## Anzeigemodi
 
-- **Modus 0:** Uhrzeit (HH:MM)
-- **Modus 1:** Sekunden
-- **Modus 2:** Datum (TT.MM)
+- **Modus 1:** Uhrzeit (HH:MM)
+- **Modus 2:** Sekunden
+- **Modus 3:** Datum (TT.MM)
+- **Modus 4:** Wetter
+- **Modus 5:** Display aus
+
 
 ## Zeitzone anpassen
 
-In `include/config.h`:
+In `config.h`:
 
-\`\`\`cpp
 // Für Deutschland (MEZ/MESZ)
 #define TIMEZONE "CET-1CEST,M3.5.0/02,M10.5.0/03"
-\`\`\`
+
+## Ort anpassen
+
+In `config.h`:
+
+`CITY` anpassen
+
+## Displayrotation
+
+In `config.h`:
+
+`#define ROTATE_DISPLAY` hinzufügen
 
 ## Troubleshooting
 
