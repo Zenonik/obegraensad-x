@@ -413,43 +413,19 @@ void Display::drawWeather(float temp, const String &cond, WeatherMode mode)
     {
         int t = round(temp);
 
-        // Temperatur groß in der Mitte
+        // Temperatur zentriert in der Mitte
         if (abs(t) >= 10)
         {
-            drawDigit(abs(t) / 10, 2, 2);
-            drawDigit(abs(t) % 10, 8, 2);
+            drawDigit(abs(t) / 10, 2, 4);  // Linke Ziffer
+            drawDigit(abs(t) % 10, 9, 4); // Rechte Ziffer
         }
         else
         {
-            drawDigit(abs(t), 5, 2);
+            drawDigit(abs(t), 7, 4); // Einzelne Ziffer
         }
 
-        // kleines Symbol unten
-        if (cond.indexOf("Rain") >= 0)
-        {
-            // 🌧️ kleines Regentropfen-Symbol
-            for (int x = 6; x <= 9; x++)
-                setPixel(x, 13, true);
-            setPixel(7, 14, true);
-            setPixel(8, 15, true);
-        }
-        else if (cond.indexOf("Cloud") >= 0)
-        {
-            // ☁️ kleine Wolke
-            for (int x = 5; x <= 10; x++)
-                setPixel(x, 13, true);
-            for (int x = 6; x <= 9; x++)
-                setPixel(x, 14, true);
-        }
-        else if (cond.indexOf("Clear") >= 0)
-        {
-            // ☀️ kleine Sonne
-            setPixel(8, 12, true);
-            setPixel(7, 12, true);
-            setPixel(9, 12, true);
-            setPixel(8, 11, true);
-            setPixel(8, 13, true);
-        }
+        // Grad-Punkt rechts neben der Zahl, zentriert
+        setPixel(15, 3, true);
     }
     else if (mode == WeatherMode::MODE_ICON)
     {
