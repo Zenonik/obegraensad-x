@@ -247,10 +247,8 @@ String WebServerManager::getHTML() {
                     <option value="0" )rawliteral" + String(settingsManager.getDisplayMode() == 0 ? "selected" : "") + R"rawliteral(>Uhrzeit (HH:MM)</option>
                     <option value="1" )rawliteral" + String(settingsManager.getDisplayMode() == 1 ? "selected" : "") + R"rawliteral(>Sekunden</option>
                     <option value="2" )rawliteral" + String(settingsManager.getDisplayMode() == 2 ? "selected" : "") + R"rawliteral(>Datum (TT.MM)</option>
-                    <option value="2" )rawliteral" + String(settingsManager.getDisplayMode() == 3 ? "selected" : "") + R"rawliteral(>Wetter)</option>
-                    <option value="2" )rawliteral" + String(settingsManager.getDisplayMode() == 4 ? "selected" : "") + R"rawliteral(>Kreis Animation</option>
-                    <option value="2" )rawliteral" + String(settingsManager.getDisplayMode() == 5 ? "selected" : "") + R"rawliteral(>Linien Animation</option>
-                    <option value="2" )rawliteral" + String(settingsManager.getDisplayMode() == 6 ? "selected" : "") + R"rawliteral(>Display aus</option>
+                    <option value="3" )rawliteral" + String(settingsManager.getDisplayMode() == 3 ? "selected" : "") + R"rawliteral(>Wetter</option>
+                    <option value="4" )rawliteral" + String(settingsManager.getDisplayMode() == 4 ? "selected" : "") + R"rawliteral(>Display aus</option>
                 </select>
             </div>
             
