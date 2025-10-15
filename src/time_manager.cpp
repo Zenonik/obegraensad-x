@@ -19,7 +19,7 @@ bool TimeManager::begin() {
 }
 
 bool TimeManager::syncTime() {
-    Serial.print("Synchronisiere mit NTP-Server...");
+    Serial.print("Synchronisiere mit NTP-Server '" + String(NTP_SERVER) + "'...");
     
     int retry = 0;
     while (!getLocalTime(&timeinfo) && retry < 15) {
@@ -43,8 +43,8 @@ bool TimeManager::syncTime() {
 }
 
 bool TimeManager::update() {
-    // Re-sync alle 24 Stunden
-    if (millis() - lastSync > 86400000) {
+    // Re-sync jede Stunde (Grund: Sommer/Winterzeit)
+    if (millis() - lastSync > 3600000) {
         return syncTime();
     }
     
