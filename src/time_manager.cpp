@@ -1,5 +1,6 @@
 #include "time_manager.h"
 #include "config.h"
+#include "display.h"
 
 TimeManager timeManager;
 
@@ -19,6 +20,7 @@ bool TimeManager::begin() {
 }
 
 bool TimeManager::syncTime() {
+    display.drawText2x2("TIME");
     Serial.print("Synchronisiere mit NTP-Server '" + String(NTP_SERVER) + "'...");
     
     int retry = 0;
