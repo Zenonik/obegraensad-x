@@ -1,13 +1,21 @@
 #pragma once
 
+// === START Systemconfig - DONT TOUCH! ===
+
 #define P_EN   5    // OE / Enable
 #define P_DI   23   // Data
 #define P_CLK  18   // Clock
 #define P_CLA  19   // Latch
 #define P_KEY  22   // Button
 
+#define DISPLAYMODES 6
+
 #define DISPLAY_WIDTH 16
 #define DISPLAY_HEIGHT 16
+
+// === END Systemconfig - DONT TOUCH! ===
+// ========================================
+// === Userconfig ===
 
 #define ROTATE_DISPLAY
 

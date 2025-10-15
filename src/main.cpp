@@ -156,8 +156,8 @@ void handleButton() {
         lastPress = millis();
         Serial.println("[Main] Knopf gedrückt – Modus wechseln");
 
-        // 🔁 6 Modi (0–5)
-        uint8_t newMode = (settingsManager.getDisplayMode() + 1) % 7;
+        // 🔁 Each Case = One Modie
+        uint8_t newMode = (settingsManager.getDisplayMode() + 1) % (DISPLAYMODES+1);
         settingsManager.setDisplayMode(newMode); // ✅ wird gespeichert!
         updateDisplay();
     }
