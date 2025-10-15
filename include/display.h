@@ -31,6 +31,7 @@ public:
     void lineAnimation();
     void circleAnimation();
     void drawWeather(float temp, const String& cond, WeatherMode mode); // Original
+    void drawCheckmark();
 
     // 🌀 Neue asynchrone Startup-Animation
     void startAsyncAnimation();

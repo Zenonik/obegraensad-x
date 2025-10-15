@@ -79,6 +79,7 @@ void WeatherManager::update() {
         if (desc) condition = mapCondition(String(desc));
 
         Serial.printf("[Weather] %.1f°C, %s\n", temperature, condition.c_str());
+        display.drawCheckmark();
     } else {
         Serial.println("[Weather] Kein gültiger current_condition-Block gefunden");
     }

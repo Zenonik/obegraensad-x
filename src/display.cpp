@@ -648,3 +648,24 @@ void Display::drawWeather(float temp, const String &cond, WeatherMode mode)
 
     update();
 }
+
+void Display::drawCheckmark()
+{
+    clear();
+
+    // Einfaches Häkchen-Muster, zentriert (leicht nach unten versetzt)
+    const int checkmark[][2] = {
+        {3, 8}, {4, 9}, {5, 10},
+        {6, 9}, {7, 8}, {8, 7},
+        {9, 6}, {10, 5}, {11, 4}
+    };
+
+    for (auto &p : checkmark)
+        setPixel(p[0], p[1], true);
+
+    update();
+
+    // Kurzes Aufleuchten zur Bestätigung
+    delay(500);
+    clear();
+}

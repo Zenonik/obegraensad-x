@@ -36,6 +36,7 @@ bool TimeManager::syncTime() {
         Serial.println(" OK!");
         Serial.printf("Zeit: %02d:%02d:%02d\n", 
                      timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        display.drawCheckmark();   
         return true;
     } else {
         synced = false;
