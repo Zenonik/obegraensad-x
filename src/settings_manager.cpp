@@ -76,7 +76,7 @@ bool SettingsManager::validate() {
     if (settings.magic != EEPROM_MAGIC) return false;
     if (settings.version != EEPROM_VERSION) return false;
     if (settings.brightness < 10 || settings.brightness > 255) return false;
-    if (settings.displayMode > 5) return false; // du nutzt 0–5
+    if (settings.displayMode > 6) return false; // du nutzt 0–5
     return true;
 }
 
@@ -100,7 +100,7 @@ void SettingsManager::setBrightness(uint8_t value) {
 uint8_t SettingsManager::getDisplayMode() { return settings.displayMode; }
 
 void SettingsManager::setDisplayMode(uint8_t mode) {
-    if (mode <= 5 && mode != settings.displayMode) {
+    if (mode <= 6 && mode != settings.displayMode) {
         settings.displayMode = mode;
         save();
         Serial.printf("[Settings] Neuer Modus: %d\n", mode);

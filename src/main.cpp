@@ -6,6 +6,11 @@
 #include "settings_manager.h"
 #include "web_server_manager.h"
 #include "weather_manager.h" // 🌤️ Wetter-Feature
+#include "game_of_life.h"
+
+GameOfLife life(display);
+
+int previousMode = -1;
 
 // --- Zeitmanagement ---
 unsigned long lastDisplayUpdate = 0;
@@ -83,6 +88,9 @@ void setup() {
     uint8_t savedMode = settingsManager.getDisplayMode();
     Serial.printf("[Settings] Gespeicherter Modus: %d\n", savedMode);
     updateDisplay();
+
+    // Game of Life
+    life.begin(250);
 }
 
 // ======================================================
@@ -130,6 +138,11 @@ void loop() {
         Serial.printf("[Display] Neue Helligkeit übernommen: %d\n", currentBrightness);
     }
 
+    // Game of Life Update
+    if (life.isRunning()) {
+        life.update();
+    }
+
     delay(10);
 }
 
@@ -144,7 +157,7 @@ void handleButton() {
         Serial.println("[Main] Knopf gedrückt – Modus wechseln");
 
         // 🔁 6 Modi (0–5)
-        uint8_t newMode = (settingsManager.getDisplayMode() + 1) % 6;
+        uint8_t newMode = (settingsManager.getDisplayMode() + 1) % 7;
         settingsManager.setDisplayMode(newMode); // ✅ wird gespeichert!
         updateDisplay();
     }
@@ -160,6 +173,16 @@ void updateDisplay() {
     uint8_t h = timeManager.getHour();
     uint8_t m = timeManager.getMinute();
     uint8_t s = timeManager.getSecond();
+
+    if (mode != previousMode) {
+        // ==== optionales Aufräumen ====
+        if (previousMode == 5 && life.isRunning()) {
+            life.stop();
+            Serial.println("[GameOfLife] Animation gestoppt");
+        }
+
+        previousMode = mode;  // aktuellen Modus merken
+    }
 
     // Wetterumschaltung im manuellen Modus
     if (mode == 3 && millis() - lastWeatherToggle > 5000) {
@@ -207,8 +230,18 @@ void updateDisplay() {
         break;
     }
 
-    // ⛔ Case 5: Display aus
+    // 🔁 Case 5: Game of Life
     case 5:
+        if (!life.isRunning()) {
+            life.spawnGlider(3, 3); // kleine Rakete in der Ecke
+            life.randomize(30);   // etwas Leben
+            life.start();
+            Serial.println("[GameOfLife] Animation gestartet");
+        }
+        break;
+
+    // ⛔ Case 6: Display aus
+    case 6:
         display.clear();
         display.update();
         break;
