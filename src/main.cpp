@@ -195,17 +195,14 @@ void updateDisplay() {
 
     // 🔁 Case 4: Automatikmodus Zeit 
     case 4: { 
-        bool inSecondsWindow = (s >= 55 && s <= 59) || (s >= 25 && s <= 29);
-        bool showFullTimeNow = (s == 0 || s == 30);
+        bool inSecondsWindow = (s >= 55 && s <= 58) || (s >= 25 && s <= 29);
 
         if (inSecondsWindow) {
             drawSecondsView(s);
             return; 
-        }
-
-        if (showFullTimeNow) {
+        } else {
             drawTimeView(h, m);
-            return; 
+            return;
         }
         break;
     }
