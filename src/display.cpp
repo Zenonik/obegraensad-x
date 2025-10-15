@@ -667,5 +667,33 @@ void Display::drawCheckmark()
 
     // Kurzes Aufleuchten zur Bestätigung
     delay(500);
+}
+
+void Display::animateCheckmark()
+{
     clear();
+
+    const int checkmark[][2] = {
+        {3, 8}, {4, 9}, {5, 10},
+        {6, 9}, {7, 8}, {8, 7},
+        {9, 6}, {10, 5}, {11, 4}
+    };
+
+    for (auto &p : checkmark)
+    {
+        setPixel(p[0], p[1], true);
+        update();
+        delay(60); // 60 ms pro Schritt
+    }
+
+    // kurzes Aufblitzen als "OK"
+    for (int i = 0; i < 2; i++)
+    {
+        setBrightness(255);
+        update();
+        delay(80);
+        setBrightness(150);
+        update();
+        delay(80);
+    }
 }

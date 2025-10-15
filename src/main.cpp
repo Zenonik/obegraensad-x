@@ -77,7 +77,7 @@ void setup() {
         ESP.restart();
     }
 
-    display.drawCheckmark();
+    display.animateCheckmark();
 
     timeManager.begin();
     weatherManager.begin(CITY);
