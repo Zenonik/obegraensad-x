@@ -45,8 +45,8 @@ void drawDateView(uint8_t day, uint8_t month) {
     display.clear();
     display.drawDigit(day / 10, 2, 0);
     display.drawDigit(day % 10, 9, 0);
-    display.setPixel(8, 6, true);
-    display.setPixel(9, 6, true);
+    display.setPixel(15, 6, true);
+    display.setPixel(15, 15, true);
     display.drawDigit(month / 10, 2, 9);
     display.drawDigit(month % 10, 9, 9);
     display.update();
