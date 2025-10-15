@@ -16,7 +16,7 @@ void WiFiConnectionManager::onConfigMode(WiFiManager *manager) {
     
     // Zeige "WIFI" auf Display
     display.clear();
-    display.drawText("WIFI");
+    display.drawText2x2("WIFI");
     display.update();
 }
 

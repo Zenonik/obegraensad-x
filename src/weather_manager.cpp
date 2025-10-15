@@ -1,6 +1,7 @@
 #include "weather_manager.h"
 #include "wifi_manager.h"
 #include <WiFiClientSecure.h>
+#include "display.h"
 
 WeatherManager weatherManager;
 
@@ -28,6 +29,8 @@ void WeatherManager::update() {
     lastUpdate = millis();
 
     if (!wifiConnection.isConnected()) return;
+
+    display.drawText2x2("WTTR");
 
     String url = "https://wttr.in/" + city + "?format=j1";
     Serial.println("[Weather] Lade: " + url);

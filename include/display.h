@@ -19,6 +19,8 @@ public:
     void setPixel(uint8_t x, uint8_t y, bool state);
     void update();
     void drawDigit(uint8_t digit, uint8_t x, uint8_t y);
+    void drawCharacter(uint8_t index, uint8_t x, uint8_t y);
+    void drawText2x2(const String& text);
     void drawTime(uint8_t hour, uint8_t minute);
     void drawText(const char* text);
     void startupAnimation();

@@ -138,6 +138,47 @@ void Display::drawDigit(uint8_t digit, uint8_t x, uint8_t y)
     }
 }
 
+void Display::drawCharacter(uint8_t index, uint8_t x, uint8_t y)
+{
+    for (int row = 0; row < 7; row++)
+    {
+        uint8_t line = pgm_read_byte(&font5x7[index][row]);
+        for (int col = 0; col < 5; col++)
+        {
+            if (line & (1 << (4 - col)))
+                setPixel(x + col, y + row, true);
+        }
+    }
+}
+
+void Display::drawText2x2(const String &text)
+{
+    clear();
+
+    // Maximal 4 Zeichen – 2 oben, 2 unten
+    uint8_t maxChars = min((int)text.length(), 4);
+
+    for (uint8_t i = 0; i < maxChars; i++)
+    {
+        char c = toupper(text[i]);
+
+        // Positionierung analog zu drawTime()
+        uint8_t x = (i % 2 == 0) ? 2 : 9;  // links = 2, rechts = 9
+        uint8_t y = (i < 2) ? 0 : 9;       // oben = 0, unten = 9
+
+        if (c >= '0' && c <= '9')
+        {
+            drawCharacter(c - '0', x, y);
+        }
+        else if (c >= 'A' && c <= 'Z')
+        {
+            drawCharacter(c - 'A' + 10, x, y);
+        }
+    }
+
+    update();
+}
+
 // --- neue Positionierung (nach rechts/oben) ---
 void Display::drawTime(uint8_t hour, uint8_t minute)
 {
@@ -160,15 +201,14 @@ void Display::drawText(const char *text)
     {
         char c = *p;
 
-        // Unterstützt nur Zahlen und Buchstaben (A-Z, 0-9)
         if (c >= '0' && c <= '9')
         {
-            drawDigit(c - '0', x, y);
-            x += 6; // Abstand zwischen Ziffern
+            drawCharacter(c - '0', x, y);
+            x += 6;
         }
         else if (c >= 'A' && c <= 'Z')
         {
-            // Wenn du später Buchstaben hinzufügen willst, hier einbauen
+            drawCharacter(c - 'A' + 10, x, y); // Offset +10, weil 0–9 zuerst kommen
             x += 6;
         }
         else if (c == ' ')
@@ -416,7 +456,7 @@ void Display::drawWeather(float temp, const String &cond, WeatherMode mode)
         // Temperatur zentriert in der Mitte
         if (abs(t) >= 10)
         {
-            drawDigit(abs(t) / 10, 2, 4);  // Linke Ziffer
+            drawDigit(abs(t) / 10, 2, 4); // Linke Ziffer
             drawDigit(abs(t) % 10, 9, 4); // Rechte Ziffer
         }
         else

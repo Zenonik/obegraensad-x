@@ -68,7 +68,7 @@ void setup() {
     pinMode(P_KEY, INPUT_PULLUP);
 
     display.clear();
-    display.drawText("WIFI");
+    display.drawText2x2("WIFI");
     display.update();
 
     if (!wifiConnection.begin()) {
@@ -124,7 +124,7 @@ void loop() {
     // WiFi-Check
     if (!wifiConnection.isConnected()) {
         display.clear();
-        display.drawText("WIFI");
+        display.drawText2x2("WIFI");
         display.update();
         delay(5000);
     }
