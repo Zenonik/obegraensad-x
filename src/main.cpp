@@ -5,52 +5,42 @@
 #include "time_manager.h"
 #include "settings_manager.h"
 #include "web_server_manager.h"
-#include "weather_manager.h" // 🌤️ Wetter-Feature
+#include "weather_manager.h"
 #include "game_of_life.h"
 
+// ======================================================
+// 🧩 GLOBALS
+// ======================================================
 GameOfLife life(display);
 
 int previousMode = -1;
-
-// --- Zeitmanagement ---
 unsigned long lastDisplayUpdate = 0;
 unsigned long lastButtonCheck = 0;
 unsigned long lastWeatherUpdate = 0;
 
-// --- Buttonstatus ---
 bool lastButtonState = HIGH;
-static unsigned long lastPress = 0;
+unsigned long lastPress = 0;
 
-// --- Wetterumschaltung ---
-static bool weatherToggle = false;
-static unsigned long lastWeatherToggle = 0;
+bool weatherToggle = false;
+unsigned long lastWeatherToggle = 0;
 
-// --- Automatikmodus ---
-static uint8_t autoSubMode = 0;           // 0=Zeit, 1=Datum, 2=Wetter
-static unsigned long lastAutoSwitch = 0;
-const unsigned long AUTO_SWITCH_INTERVAL = 20000; // alle 20s wechseln
+uint8_t autoSubMode = 0;
+unsigned long lastAutoSwitch = 0;
+
+const unsigned long AUTO_SWITCH_INTERVAL = 20000; // 20s
 const unsigned long MIN_VIEW_TIME = 5000;
 
-// --- Funktionsprototypen ---
+// ======================================================
+// 🧠 FUNCTION PROTOTYPES
+// ======================================================
 void handleButton();
 void updateDisplay();
-void drawTimeView(uint8_t h, uint8_t m)        { display.drawTime(h, m); }
-void drawSecondsView(uint8_t s)                {
-    display.clear();
-    display.drawDigit(s / 10, 2, 5);
-    display.drawDigit(s % 10, 9, 5);
-    display.update();
-}
-void drawDateView(uint8_t day, uint8_t month) {
-    display.clear();
-    display.drawDigit(day / 10, 2, 0);
-    display.drawDigit(day % 10, 9, 0);
-    display.setPixel(15, 6, true);
-    display.setPixel(15, 15, true);
-    display.drawDigit(month / 10, 2, 9);
-    display.drawDigit(month % 10, 9, 9);
-    display.update();
-}
+void drawTimeView(uint8_t h, uint8_t m);
+void drawSecondsView(uint8_t s);
+void drawDateView(uint8_t day, uint8_t month);
+void updateBrightness();
+void checkWiFi();
+void updateWeather();
 
 // ======================================================
 // 🧩 SETUP
@@ -62,9 +52,8 @@ void setup() {
 
     settingsManager.begin();
     display.begin();
-    uint8_t brightness = settingsManager.getBrightness();
-    display.setBrightness(brightness);
-    Serial.printf("[Display] Initiale Helligkeit: %d\n", brightness);
+    display.setBrightness(settingsManager.getBrightness());
+
     pinMode(P_KEY, INPUT_PULLUP);
 
     display.clear();
@@ -86,12 +75,11 @@ void setup() {
     Serial.println("[System] Bereit unter: http://" + wifiConnection.getIP());
     delay(300);
 
-    // ✅ Gespeicherten Modus auslesen und anwenden
-    uint8_t savedMode = settingsManager.getDisplayMode();
-    Serial.printf("[Settings] Gespeicherter Modus: %d\n", savedMode);
+    // Restore previous mode
+    Serial.printf("[Settings] Gespeicherter Modus: %d\n", settingsManager.getDisplayMode());
     updateDisplay();
 
-    // Game of Life
+    // Initialize Game of Life
     life.begin(250);
 }
 
@@ -101,46 +89,32 @@ void setup() {
 void loop() {
     webServer.handleClient();
 
-    // Buttonprüfung
+    // Check button every 50ms
     if (millis() - lastButtonCheck >= 50) {
         lastButtonCheck = millis();
         handleButton();
     }
 
-    // Displayupdate jede Sekunde
+    // Update display every second
     if (millis() - lastDisplayUpdate >= 1000) {
         lastDisplayUpdate = millis();
         timeManager.update();
         updateDisplay();
     }
 
-    // Wetterupdate alle 10 Minuten
+    // Update weather every 10 minutes
     if (millis() - lastWeatherUpdate > 10UL * 60UL * 1000UL) {
         lastWeatherUpdate = millis();
-        xTaskCreatePinnedToCore([](void*) {
-            weatherManager.update();
-            vTaskDelete(NULL);
-        }, "WeatherUpdateTask", 8192, NULL, 1, NULL, 1);
+        updateWeather();
     }
 
-    // WiFi-Check
-    if (!wifiConnection.isConnected()) {
-        display.clear();
-        display.drawText2x2("WIFI");
-        display.update();
-        delay(5000);
-    }
+    // Check WiFi connection
+    checkWiFi();
 
-    // Helligkeit
-    static uint8_t lastBrightness = 255;
-    uint8_t currentBrightness = settingsManager.getBrightness();
-    if (currentBrightness != lastBrightness) {
-        display.setBrightness(currentBrightness);
-        lastBrightness = currentBrightness;
-        Serial.printf("[Display] Neue Helligkeit übernommen: %d\n", currentBrightness);
-    }
+    // Handle brightness changes
+    updateBrightness();
 
-    // Game of Life Update
+    // Run Game of Life animation
     if (life.isRunning()) {
         life.update();
     }
@@ -158,9 +132,8 @@ void handleButton() {
         lastPress = millis();
         Serial.println("[Main] Knopf gedrückt – Modus wechseln");
 
-        // 🔁 Each Case = One Modie
-        uint8_t newMode = (settingsManager.getDisplayMode() + 1) % (DISPLAYMODES+1);
-        settingsManager.setDisplayMode(newMode); // ✅ wird gespeichert!
+        uint8_t newMode = (settingsManager.getDisplayMode() + 1) % (DISPLAYMODES + 1);
+        settingsManager.setDisplayMode(newMode);
         updateDisplay();
     }
 
@@ -177,16 +150,14 @@ void updateDisplay() {
     uint8_t s = timeManager.getSecond();
 
     if (mode != previousMode) {
-        // ==== optionales Aufräumen ====
         if (previousMode == 5 && life.isRunning()) {
             life.stop();
             Serial.println("[GameOfLife] Animation gestoppt");
         }
-
-        previousMode = mode;  // aktuellen Modus merken
+        previousMode = mode;
     }
 
-    // Wetterumschaltung im manuellen Modus
+    // Weather toggle every 5s in manual mode
     if (mode == 3 && millis() - lastWeatherToggle > 5000) {
         weatherToggle = !weatherToggle;
         lastWeatherToggle = millis();
@@ -195,62 +166,102 @@ void updateDisplay() {
     Serial.printf("[Display] Mode %d | %02d:%02d:%02d\n", mode, h, m, s);
 
     switch (mode) {
-    // 🔁 Case 0: Uhrzeit
-    case 0: drawTimeView(h, m); break;
+        case 0: drawTimeView(h, m); break;                            // 🕒 Uhrzeit
+        case 1: drawSecondsView(s); break;                            // ⏱️ Sekunden
+        case 2: drawDateView(timeManager.getDay(), timeManager.getMonth()); break; // 📅 Datum
 
-    // 🔁 Case 1: Sekundenanzeige
-    case 1: drawSecondsView(s); break;
+        case 3: // 🌤️ Wetteranzeige
+            if (weatherToggle) {
+                display.drawWeather(weatherManager.getTemperature(),
+                                    weatherManager.getCondition() + "_icon",
+                                    WeatherMode::MODE_ICON);
+            } else {
+                display.drawWeather(weatherManager.getTemperature(),
+                                    weatherManager.getCondition(),
+                                    WeatherMode::MODE_TEXT);
+            }
+            break;
 
-    // 🔁 Case 2: Datumsanzeige
-    case 2: drawDateView(timeManager.getDay(), timeManager.getMonth()); break;
-
-    // 🔁 Case 3: Wetteranzeige
-    case 3:
-    if (weatherToggle) {
-            // Pixel-Art-Ansicht (z. B. Sonne/Wolke)
-            display.drawWeather(weatherManager.getTemperature(),
-                                weatherManager.getCondition() + "_icon", WeatherMode::MODE_ICON);
-        } else {
-            // normale Temperaturanzeige
-            display.drawWeather(weatherManager.getTemperature(),
-                                weatherManager.getCondition(), WeatherMode::MODE_TEXT);
+        case 4: { // 🔁 Automatikmodus Zeit
+            bool inSecondsWindow = (s >= 55 && s <= 58) || (s >= 25 && s <= 29);
+            if (inSecondsWindow)
+                drawSecondsView(s);
+            else
+                drawTimeView(h, m);
+            break;
         }
-        break;
-    break;
 
-    // 🔁 Case 4: Automatikmodus Zeit 
-    case 4: { 
-        bool inSecondsWindow = (s >= 55 && s <= 58) || (s >= 25 && s <= 29);
+        case 5: // 🧬 Game of Life
+            if (!life.isRunning()) {
+                life.spawnGlider(3, 3);
+                life.randomize(30);
+                life.start();
+                Serial.println("[GameOfLife] Animation gestartet");
+            }
+            break;
 
-        if (inSecondsWindow) {
-            drawSecondsView(s);
-            return; 
-        } else {
-            drawTimeView(h, m);
-            return;
-        }
-        break;
+        case 6: // ⚫ Display aus
+        default:
+            display.clear();
+            display.update();
+            break;
     }
+}
 
-    // 🔁 Case 5: Game of Life
-    case 5:
-        if (!life.isRunning()) {
-            life.spawnGlider(3, 3); // kleine Rakete in der Ecke
-            life.randomize(30);   // etwas Leben
-            life.start();
-            Serial.println("[GameOfLife] Animation gestartet");
-        }
-        break;
+// ======================================================
+// 🧱 DRAW HELPERS
+// ======================================================
+void drawTimeView(uint8_t h, uint8_t m) {
+    display.drawTime(h, m);
+}
 
-    // ⛔ Case 6: Display aus
-    case 6:
+void drawSecondsView(uint8_t s) {
+    display.clear();
+    display.drawDigit(s / 10, 2, 5);
+    display.drawDigit(s % 10, 9, 5);
+    display.update();
+}
+
+void drawDateView(uint8_t day, uint8_t month) {
+    display.clear();
+    display.drawDigit(day / 10, 2, 0);
+    display.drawDigit(day % 10, 9, 0);
+    display.setPixel(15, 6, true);
+    display.setPixel(15, 15, true);
+    display.drawDigit(month / 10, 2, 9);
+    display.drawDigit(month % 10, 9, 9);
+    display.update();
+}
+
+// ======================================================
+// 🌤️ WEATHER UPDATE (Async Task)
+// ======================================================
+void updateWeather() {
+    xTaskCreatePinnedToCore([](void*) {
+        weatherManager.update();
+        vTaskDelete(NULL);
+    }, "WeatherUpdateTask", 8192, NULL, 1, NULL, 1);
+}
+
+// ======================================================
+// 📡 WIFI & BRIGHTNESS HELPERS
+// ======================================================
+void checkWiFi() {
+    if (!wifiConnection.isConnected()) {
         display.clear();
+        display.drawText2x2("WIFI");
         display.update();
-        break;
+        delay(5000);
+    }
+}
 
-    default:
-        display.clear();
-        display.update();
-        break;
+void updateBrightness() {
+    static uint8_t lastBrightness = 255;
+    uint8_t current = settingsManager.getBrightness();
+
+    if (current != lastBrightness) {
+        display.setBrightness(current);
+        lastBrightness = current;
+        Serial.printf("[Display] Neue Helligkeit übernommen: %d\n", current);
     }
 }
