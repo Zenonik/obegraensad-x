@@ -55,7 +55,7 @@ void setup()
 {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\n=== OBEGRÄNSAD-X ESP32 v1.2 ===\n");
+    Serial.println("\n=== OBEGRÄNSAD-X ESP32 " + String(CURRENT_VERSION) + " ===");
 
     settingsManager.begin();
     display.begin();
