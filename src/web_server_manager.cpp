@@ -4,6 +4,10 @@
 #include "wifi_manager.h"
 #include "time_manager.h"
 #include "settings_manager.h"
+#include <HTTPClient.h>
+#include <Update.h>
+
+#define CURRENT_VERSION "1.2" // deine aktuelle Firmware-Version
 
 WebServerManager webServer;
 
@@ -16,6 +20,7 @@ void WebServerManager::begin() {
     server.on("/api/restart", HTTP_POST, [this]() { handleRestart(); });
     server.on("/api/reset", HTTP_POST, [this]() { handleReset(); });
     server.on("/api/status", HTTP_GET, [this]() { handleStatus(); });
+    server.on("/api/update", HTTP_POST, [this]() { handleOTAUpdate(); });
     server.onNotFound([this]() { handleNotFound(); });
     
     server.begin();
@@ -257,6 +262,7 @@ String WebServerManager::getHTML() {
             <div class="button-group">
                 <button type="submit" class="btn-primary">Speichern</button>
                 <button type="button" class="btn-secondary" onclick="restart()">Neustart</button>
+                <button type="button" class="btn-secondary" onclick="firmwareUpdate()">Firmware-Update</button>
                 <button type="button" class="btn-danger" onclick="resetWiFi()">WiFi Reset</button>
             </div>
         </form>
@@ -311,6 +317,18 @@ String WebServerManager::getHTML() {
             if (confirm('WiFi-Einstellungen zurücksetzen? Das Gerät startet neu.')) {
                 await fetch('/api/reset', { method: 'POST' });
                 showStatus('WiFi wird zurückgesetzt...', 'success');
+            }
+        }
+
+        async function firmwareUpdate() {
+            if (confirm('Firmware-Update aus GitHub starten?')) {
+                showStatus('Starte Update...', 'success');
+                try {
+                    await fetch('/api/update', { method: 'POST' });
+                    showStatus('Update läuft, Gerät startet neu...', 'success');
+                } catch (e) {
+                    showStatus('Update fehlgeschlagen!', 'error');
+                }
             }
         }
         
@@ -399,4 +417,67 @@ void WebServerManager::handleNotFound() {
     } else {
         server.send(404, "text/plain", "404: Seite nicht gefunden");
     }
+}
+
+void WebServerManager::handleOTAUpdate() {
+    Serial.println("[OTA] Firmware-Update angefordert (Web API)");
+    server.send(200, "text/plain", "Starte Firmware-Update...");
+
+    display.clear();
+    display.drawText2x2("UPDT");
+    display.update();
+
+    HTTPClient http;
+    http.begin(OTA_VERSION_URL);
+    int code = http.GET();
+
+    if (code == 200) {
+        String newVersion = http.getString();
+        newVersion.trim();
+        Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
+
+        if (newVersion != CURRENT_VERSION) {
+            Serial.println("[OTA] Neue Version verfügbar, lade Firmware...");
+            http.end();
+
+            WiFiClient client;
+            HTTPClient httpUpdate;
+            httpUpdate.begin(client, OTA_FIRMWARE_URL);
+            int httpCode = httpUpdate.GET();
+
+            if (httpCode == 200) {
+                int len = httpUpdate.getSize();
+                bool canBegin = Update.begin(len);
+                if (canBegin) {
+                    WiFiClient *stream = httpUpdate.getStreamPtr();
+                    size_t written = Update.writeStream(*stream);
+
+                    if (Update.end() && Update.isFinished()) {
+                        Serial.printf("[OTA] Update erfolgreich (%d Bytes)\n", written);
+                        display.clear();
+                        display.drawText2x2("DONE");
+                        display.update();
+                        delay(2000);
+                        ESP.restart();
+                    } else {
+                        Serial.println("[OTA] Fehler beim Schreiben!");
+                    }
+                } else {
+                    Serial.println("[OTA] Speicher zu klein!");
+                }
+            } else {
+                Serial.printf("[OTA] Fehler beim Firmware-Download (%d)\n", httpCode);
+            }
+            httpUpdate.end();
+        } else {
+            Serial.println("[OTA] Firmware ist aktuell.");
+            display.clear();
+            display.drawText2x2("OK");
+            display.update();
+            delay(1500);
+        }
+    } else {
+        Serial.printf("[OTA] Fehler beim Abruf der Version (%d)\n", code);
+    }
+    http.end();
 }

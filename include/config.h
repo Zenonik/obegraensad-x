@@ -27,3 +27,6 @@
 #define AP_NAME "OBEGRÄNSAD-X"
 #define AP_PASSWORD ""
 #define WEB_SERVER_PORT 80
+#define OTA_VERSION_URL "https://raw.githubusercontent.com/<user>/<repo>/main/version.txt"
+#define OTA_FIRMWARE_URL "https://github.com/<user>/<repo>/releases/latest/download/firmware.bin"
+#define CURRENT_VERSION "1.2"   // gleiche Version wie dein Build

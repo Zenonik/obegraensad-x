@@ -7,6 +7,8 @@
 #include "web_server_manager.h"
 #include "weather_manager.h"
 #include "game_of_life.h"
+#include <HTTPClient.h>
+#include <Update.h>
 
 // ======================================================
 // 🧩 GLOBALS
@@ -41,6 +43,7 @@ void drawDateView(uint8_t day, uint8_t month);
 void updateBrightness();
 void checkWiFi();
 void updateWeather();
+void performOTAUpdate();
 
 // ======================================================
 // 🧩 SETUP
@@ -128,10 +131,21 @@ void loop() {
 void handleButton() {
     bool currentState = digitalRead(P_KEY);
 
-    if (currentState == LOW && lastButtonState == HIGH && millis() - lastPress > 300) {
+    // Knopf gedrückt
+    if (currentState == LOW && lastButtonState == HIGH) {
         lastPress = millis();
-        Serial.println("[Main] Knopf gedrückt – Modus wechseln");
+    }
 
+    // Knopf wird gehalten
+    if (currentState == LOW && (millis() - lastPress) >= 5000) {
+        Serial.println("[Main] 5s langer Druck erkannt → OTA-Update starten");
+        performOTAUpdate();
+        lastPress = millis() + 10000; // debounce nach OTA
+    }
+
+    // Kurzer Druck: Modus wechseln
+    if (currentState == HIGH && lastButtonState == LOW && (millis() - lastPress) < 5000) {
+        Serial.println("[Main] Kurzer Druck – Modus wechseln");
         uint8_t newMode = (settingsManager.getDisplayMode() + 1) % (DISPLAYMODES + 1);
         settingsManager.setDisplayMode(newMode);
         updateDisplay();
@@ -264,4 +278,67 @@ void updateBrightness() {
         lastBrightness = current;
         Serial.printf("[Display] Neue Helligkeit übernommen: %d\n", current);
     }
+}
+
+// ======================================================
+// 🔄 OTA UPDATE HANDLER
+// ======================================================
+void performOTAUpdate() {
+    display.clear();
+    display.drawText2x2("UPDT");
+    display.update();
+    Serial.println("[OTA] Prüfe neue Firmware...");
+
+    HTTPClient http;
+    http.begin(OTA_VERSION_URL);
+    int code = http.GET();
+
+    if (code == 200) {
+        String newVersion = http.getString();
+        newVersion.trim();
+        Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
+
+        if (newVersion != CURRENT_VERSION) {
+            Serial.println("[OTA] Neue Version gefunden! Lade Firmware...");
+            http.end();
+
+            WiFiClient client;
+            HTTPClient httpUpdate;
+            httpUpdate.begin(client, OTA_FIRMWARE_URL);
+            int httpCode = httpUpdate.GET();
+
+            if (httpCode == 200) {
+                int len = httpUpdate.getSize();
+                bool canBegin = Update.begin(len);
+                if (canBegin) {
+                    WiFiClient *stream = httpUpdate.getStreamPtr();
+                    size_t written = Update.writeStream(*stream);
+                    if (Update.end() && Update.isFinished()) {
+                        Serial.printf("[OTA] Update erfolgreich (%d Bytes)\n", written);
+                        display.clear();
+                        display.drawText2x2("DONE");
+                        display.update();
+                        delay(2000);
+                        ESP.restart();
+                    } else {
+                        Serial.println("[OTA] Fehler beim Schreiben!");
+                    }
+                } else {
+                    Serial.println("[OTA] Speicher nicht groß genug!");
+                }
+            } else {
+                Serial.printf("[OTA] Download fehlgeschlagen (%d)\n", httpCode);
+            }
+            httpUpdate.end();
+        } else {
+            Serial.println("[OTA] Firmware aktuell.");
+            display.clear();
+            display.drawText2x2("OK");
+            display.update();
+            delay(1500);
+        }
+    } else {
+        Serial.printf("[OTA] Fehler beim Abruf der Version (%d)\n", code);
+    }
+    http.end();
 }

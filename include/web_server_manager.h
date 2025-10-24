@@ -21,6 +21,7 @@ private:
     void handleRestart();
     void handleReset();
     void handleNotFound();
+    void handleOTAUpdate();
     
     String getHTML();
 };
