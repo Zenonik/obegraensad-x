@@ -5,7 +5,9 @@
 #include "time_manager.h"
 #include "settings_manager.h"
 #include <HTTPClient.h>
-#include <Update.h>
+#include <HTTPUpdate.h>
+#include <WiFiClient.h>
+#include "version.h"
 
 #define CURRENT_VERSION "1.2" // deine aktuelle Firmware-Version
 
@@ -428,6 +430,7 @@ void WebServerManager::handleOTAUpdate() {
     display.update();
 
     HTTPClient http;
+    http.setTimeout(8000);
     http.begin(OTA_VERSION_URL);
     int code = http.GET();
 
@@ -437,38 +440,41 @@ void WebServerManager::handleOTAUpdate() {
         Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
 
         if (newVersion != CURRENT_VERSION) {
-            Serial.println("[OTA] Neue Version verfügbar, lade Firmware...");
+            Serial.println("[OTA] Neue Version verfügbar! Starte Update...");
             http.end();
 
-            WiFiClient client;
-            HTTPClient httpUpdate;
-            httpUpdate.begin(client, OTA_FIRMWARE_URL);
-            int httpCode = httpUpdate.GET();
+            WiFiClientSecure client;
+            client.setInsecure();  // oder Zertifikat laden
+            t_httpUpdate_return ret = httpUpdate.update(client, OTA_FIRMWARE_URL);
 
-            if (httpCode == 200) {
-                int len = httpUpdate.getSize();
-                bool canBegin = Update.begin(len);
-                if (canBegin) {
-                    WiFiClient *stream = httpUpdate.getStreamPtr();
-                    size_t written = Update.writeStream(*stream);
+            switch (ret) {
+                case HTTP_UPDATE_FAILED:
+                    Serial.printf("[OTA] Update fehlgeschlagen (%d): %s\n",
+                                  httpUpdate.getLastError(),
+                                  httpUpdate.getLastErrorString().c_str());
+                    display.clear();
+                    display.drawText2x2("ERR");
+                    display.update();
+                    delay(2000);
+                    break;
 
-                    if (Update.end() && Update.isFinished()) {
-                        Serial.printf("[OTA] Update erfolgreich (%d Bytes)\n", written);
-                        display.clear();
-                        display.drawText2x2("DONE");
-                        display.update();
-                        delay(2000);
-                        ESP.restart();
-                    } else {
-                        Serial.println("[OTA] Fehler beim Schreiben!");
-                    }
-                } else {
-                    Serial.println("[OTA] Speicher zu klein!");
-                }
-            } else {
-                Serial.printf("[OTA] Fehler beim Firmware-Download (%d)\n", httpCode);
+                case HTTP_UPDATE_NO_UPDATES:
+                    Serial.println("[OTA] Keine Updates verfügbar.");
+                    display.clear();
+                    display.drawText2x2("OK");
+                    display.update();
+                    delay(1500);
+                    break;
+
+                case HTTP_UPDATE_OK:
+                    Serial.println("[OTA] Update erfolgreich!");
+                    display.clear();
+                    display.drawText2x2("DONE");
+                    display.update();
+                    delay(1500);
+                    ESP.restart();
+                    break;
             }
-            httpUpdate.end();
         } else {
             Serial.println("[OTA] Firmware ist aktuell.");
             display.clear();
@@ -478,6 +484,11 @@ void WebServerManager::handleOTAUpdate() {
         }
     } else {
         Serial.printf("[OTA] Fehler beim Abruf der Version (%d)\n", code);
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
     }
+
     http.end();
 }
