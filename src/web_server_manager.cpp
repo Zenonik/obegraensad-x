@@ -9,8 +9,6 @@
 #include <WiFiClient.h>
 #include "version.h"
 
-#define CURRENT_VERSION "1.2" // deine aktuelle Firmware-Version
-
 WebServerManager webServer;
 
 WebServerManager::WebServerManager() : server(WEB_SERVER_PORT) {}
@@ -429,66 +427,85 @@ void WebServerManager::handleOTAUpdate() {
     display.drawText2x2("UPDT");
     display.update();
 
+    // Versionscheck
     HTTPClient http;
-    http.setTimeout(8000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.begin(OTA_VERSION_URL);
     int code = http.GET();
 
-    if (code == 200) {
-        String newVersion = http.getString();
-        newVersion.trim();
-        Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
-
-        if (newVersion != CURRENT_VERSION) {
-            Serial.println("[OTA] Neue Version verfügbar! Starte Update...");
-            http.end();
-
-            WiFiClientSecure client;
-            client.setInsecure();  // oder Zertifikat laden
-            t_httpUpdate_return ret = httpUpdate.update(client, OTA_FIRMWARE_URL);
-
-            switch (ret) {
-                case HTTP_UPDATE_FAILED:
-                    Serial.printf("[OTA] Update fehlgeschlagen (%d): %s\n",
-                                  httpUpdate.getLastError(),
-                                  httpUpdate.getLastErrorString().c_str());
-                    display.clear();
-                    display.drawText2x2("ERR");
-                    display.update();
-                    delay(2000);
-                    break;
-
-                case HTTP_UPDATE_NO_UPDATES:
-                    Serial.println("[OTA] Keine Updates verfügbar.");
-                    display.clear();
-                    display.drawText2x2("OK");
-                    display.update();
-                    delay(1500);
-                    break;
-
-                case HTTP_UPDATE_OK:
-                    Serial.println("[OTA] Update erfolgreich!");
-                    display.clear();
-                    display.drawText2x2("DONE");
-                    display.update();
-                    delay(1500);
-                    ESP.restart();
-                    break;
-            }
-        } else {
-            Serial.println("[OTA] Firmware ist aktuell.");
-            display.clear();
-            display.drawText2x2("OK");
-            display.update();
-            delay(1500);
-        }
-    } else {
+    if (code != 200) {
         Serial.printf("[OTA] Fehler beim Abruf der Version (%d)\n", code);
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
+        http.end();
+        return;
+    }
+
+    String newVersion = http.getString();
+    newVersion.trim();
+    Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
+    http.end();
+
+    if (newVersion == CURRENT_VERSION) {
+        Serial.println("[OTA] Firmware ist aktuell.");
+        display.clear();
+        display.drawText2x2("OK");
+        display.update();
+        delay(1500);
+        return;
+    }
+
+    Serial.println("[OTA] Neue Version verfügbar! Starte Update...");
+
+    // OTA mit HTTPClient + Update.writeStream()
+    WiFiClientSecure client;
+    client.setInsecure();  // HTTPS akzeptiert alle Zertifikate
+
+    HTTPClient httpUpdate;
+    httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    httpUpdate.begin(client, OTA_FIRMWARE_URL);
+    int httpCode = httpUpdate.GET();
+
+    if (httpCode != 200) {
+        Serial.printf("[OTA] Fehler beim Firmware-Download (%d)\n", httpCode);
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
+        httpUpdate.end();
+        return;
+    }
+
+    int len = httpUpdate.getSize();
+    if (!Update.begin(len)) {
+        Serial.println("[OTA] Nicht genug Speicher für Update!");
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
+        httpUpdate.end();
+        return;
+    }
+
+    WiFiClient *stream = httpUpdate.getStreamPtr();
+    size_t written = Update.writeStream(*stream);
+
+    if (Update.end() && Update.isFinished()) {
+        Serial.printf("[OTA] Update erfolgreich (%d Bytes)\n", written);
+        display.clear();
+        display.drawText2x2("DONE");
+        display.update();
+        delay(1500);
+        ESP.restart();
+    } else {
+        Serial.println("[OTA] Fehler beim Schreiben der Firmware!");
         display.clear();
         display.drawText2x2("ERR");
         display.update();
         delay(1500);
     }
 
-    http.end();
+    httpUpdate.end();
 }

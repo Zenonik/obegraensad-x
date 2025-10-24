@@ -328,62 +328,93 @@ void performOTAUpdate()
     display.update();
     Serial.println("[OTA] Prüfe neue Firmware...");
 
+    // Versionscheck
     HTTPClient http;
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(8000);
     http.begin(OTA_VERSION_URL);
     int code = http.GET();
 
-    if (code == 200)
+    if (code != 200)
     {
-        String newVersion = http.getString();
-        newVersion.trim();
-        Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
+        Serial.printf("[OTA] Fehler beim Abruf der Version (%d)\n", code);
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
+        http.end();
+        return;
+    }
 
-        int currentVer = atoi(CURRENT_VERSION + 1); // skip 'v'
-        int onlineVer = atoi(newVersion.c_str() + 1);
+    String newVersion = http.getString();
+    newVersion.trim();
+    Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
+    http.end();
 
-        if (onlineVer > currentVer)
-        {
-            Serial.println("[OTA] Neue Version gefunden! Starte Update...");
+    if (newVersion == CURRENT_VERSION)
+    {
+        Serial.println("[OTA] Firmware aktuell.");
+        display.clear();
+        display.drawText2x2("OK");
+        display.update();
+        delay(1500);
+        return;
+    }
 
-            WiFiClientSecure client;
-            client.setInsecure(); // akzeptiert alle Zertifikate
-            t_httpUpdate_return ret = httpUpdate.update(client, OTA_FIRMWARE_URL);
+    Serial.println("[OTA] Neue Version gefunden! Starte Update...");
 
-            switch (ret)
-            {
-            case HTTP_UPDATE_FAILED:
-                Serial.printf("[OTA] Update fehlgeschlagen. (%d): %s\n",
-                              httpUpdate.getLastError(),
-                              httpUpdate.getLastErrorString().c_str());
-                break;
+    // OTA mit HTTPClient + Update.writeStream()
+    WiFiClientSecure client;
+    client.setInsecure(); // akzeptiert alle Zertifikate
 
-            case HTTP_UPDATE_NO_UPDATES:
-                Serial.println("[OTA] Keine Updates verfügbar.");
-                break;
+    HTTPClient httpUpdate;
+    httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    httpUpdate.begin(client, OTA_FIRMWARE_URL);
+    int httpCode = httpUpdate.GET();
 
-            case HTTP_UPDATE_OK:
-                Serial.println("[OTA] Update erfolgreich!");
-                display.clear();
-                display.drawText2x2("DONE");
-                display.update();
-                delay(1500);
-                ESP.restart();
-                break;
-            }
-        }
-        else
-        {
-            Serial.println("[OTA] Firmware aktuell.");
-            display.clear();
-            display.drawText2x2("OK");
-            display.update();
-            delay(1500);
-        }
+    if (httpCode != 200)
+    {
+        Serial.printf("[OTA] Fehler beim Firmware-Download (%d)\n", httpCode);
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
+        httpUpdate.end();
+        return;
+    }
+
+    int len = httpUpdate.getSize();
+    if (!Update.begin(len))
+    {
+        Serial.println("[OTA] Nicht genug Speicher für Update!");
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
+        httpUpdate.end();
+        return;
+    }
+
+    WiFiClient *stream = httpUpdate.getStreamPtr();
+    size_t written = Update.writeStream(*stream);
+
+    if (Update.end() && Update.isFinished())
+    {
+        Serial.printf("[OTA] Update erfolgreich (%d Bytes)\n", written);
+        display.clear();
+        display.drawText2x2("DONE");
+        display.update();
+        delay(1500);
+        ESP.restart();
     }
     else
     {
-        Serial.printf("[OTA] Fehler beim Abruf der Version (%d)\n", code);
+        Serial.println("[OTA] Fehler beim Schreiben der Firmware!");
+        display.clear();
+        display.drawText2x2("ERR");
+        display.update();
+        delay(1500);
     }
-    http.end();
+
+    httpUpdate.end();
 }
