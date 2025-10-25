@@ -1,3 +1,8 @@
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)
+![Platform](https://img.shields.io/badge/platform-ESP32-blue)
+![Version](https://img.shields.io/github/v/release/Zenonik/obegraensad-x?label=version)
+
 # obegraensad-x für ESP32
 
 Smarte WiFi-Uhr basierend auf IKEA OBEGRÄNSAD mit ESP32 (ELEGOO Board)
@@ -152,5 +157,4 @@ Angepasst für ESP32 mit modernem Webinterface und WiFiManager.
 
 ## Lizenz
 
-Genaue Lizenz ist zu klären!
-Open Source - Frei verwendbar für private aber NICHT für kommerzielle Projekte.
+© 2025 OBEGÄNSAD-X. Dieses Projekt steht unter einer [Creative Commons Namensnennung-NichtKommerziell 4.0 International Lizenz](https://creativecommons.org/licenses/by-nc/4.0/).
