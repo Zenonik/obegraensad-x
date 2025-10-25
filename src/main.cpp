@@ -191,7 +191,7 @@ void updateDisplay()
             life.stop();
             Serial.println("[GameOfLife] Animation gestoppt");
         }
-        else if (previousMode == 7 && pong.isRunning())
+        else if (previousMode == 6 && pong.isRunning())
         {
             pong.stop();
         }
