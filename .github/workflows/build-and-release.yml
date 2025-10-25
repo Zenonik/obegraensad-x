@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --- Code holen ---
+      # --- Quellcode holen ---
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -30,7 +30,27 @@ jobs:
       - name: Generate version.txt
         run: echo "v${{ github.run_number }}" > version.txt
 
-      # --- Automatischer Changelog ohne API-Key ---
+      # --- Git-Tags sicherstellen ---
+      - name: Ensure initial tag exists
+        run: |
+          git fetch --tags
+          if [ -z "$(git tag)" ]; then
+            echo "Kein Tag gefunden, erstelle Start-Tag v0"
+            git config user.name "${{ github.actor }}"
+            git config user.email "${{ github.actor }}@users.noreply.github.com"
+            git tag v0
+            git push origin v0
+          fi
+
+      # --- Neues Tag erstellen und pushen ---
+      - name: Create and push new tag
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag v${{ github.run_number }}
+          git push origin v${{ github.run_number }}
+
+      # --- Automatischer Changelog ---
       - name: Generate changelog
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v5
