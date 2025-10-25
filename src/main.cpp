@@ -287,7 +287,7 @@ void updateWeather()
 {
     xTaskCreatePinnedToCore([](void *)
                             {
-        weatherManager.update();
+        weatherManager.update(true);
         vTaskDelete(NULL); }, "WeatherUpdateTask", 8192, NULL, 1, NULL, 1);
 }
 

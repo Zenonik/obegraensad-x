@@ -8,7 +8,7 @@
 class WeatherManager {
 public:
     void begin(const String& city);
-    void update();
+    void update(const bool withoutCheckmark = false);
 
     float getTemperature() const;
     String getCondition() const;

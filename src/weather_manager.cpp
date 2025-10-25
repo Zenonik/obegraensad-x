@@ -23,7 +23,7 @@ static String mapCondition(const String& raw) {
     return "Unknown";
 }
 
-void WeatherManager::update() {
+void WeatherManager::update(const bool withoutCheckmark = false) {
     // Alle 30 Minuten aktualisieren
     if (millis() - lastUpdate < 30UL * 60UL * 1000UL && lastUpdate != 0) return;
     lastUpdate = millis();
@@ -79,7 +79,9 @@ void WeatherManager::update() {
         if (desc) condition = mapCondition(String(desc));
 
         Serial.printf("[Weather] %.1f°C, %s\n", temperature, condition.c_str());
-        display.animateCheckmark();
+        if (!withoutCheckmark) {
+            display.animateCheckmark();
+        }
     } else {
         Serial.println("[Weather] Kein gültiger current_condition-Block gefunden");
     }
