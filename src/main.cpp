@@ -12,11 +12,13 @@
 #include <WiFiClient.h>
 #include <Update.h>
 #include "version.h"
+#include "pong.h"
 
 // ======================================================
 // 🧩 GLOBALS
 // ======================================================
 GameOfLife life(display);
+Pong pong;
 
 int previousMode = -1;
 unsigned long lastDisplayUpdate = 0;
@@ -131,6 +133,10 @@ void loop()
     {
         life.update();
     }
+    else if (pong.isRunning())
+    {
+        pong.update();
+    }
 
     delay(10);
 }
@@ -184,6 +190,10 @@ void updateDisplay()
         {
             life.stop();
             Serial.println("[GameOfLife] Animation gestoppt");
+        }
+        else if (previousMode == 7 && pong.isRunning())
+        {
+            pong.stop();
         }
         previousMode = mode;
     }
@@ -244,7 +254,12 @@ void updateDisplay()
         }
         break;
 
-    case 6: // ⚫ Display aus
+    case 6: // 🏓 Pong
+        if (!pong.isRunning())
+            pong.start();
+        break;
+
+    case 7: // ⚫ Display aus
     default:
         display.clear();
         display.update();

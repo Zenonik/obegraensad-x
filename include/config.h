@@ -8,7 +8,7 @@
 #define P_CLA  19   // Latch
 #define P_KEY  22   // Button
 
-#define DISPLAYMODES 6
+#define DISPLAYMODES 7
 
 #define DISPLAY_WIDTH 16
 #define DISPLAY_HEIGHT 16

@@ -255,7 +255,8 @@ String WebServerManager::getHTML() {
                     <option value="3" )rawliteral" + String(settingsManager.getDisplayMode() == 3 ? "selected" : "") + R"rawliteral(>Wetter</option>
                     <option value="4" )rawliteral" + String(settingsManager.getDisplayMode() == 4 ? "selected" : "") + R"rawliteral(>Automatikmodus Uhrzeit/Sekunden</option>
                     <option value="5" )rawliteral" + String(settingsManager.getDisplayMode() == 5 ? "selected" : "") + R"rawliteral(>Game of Life</option>
-                    <option value="6" )rawliteral" + String(settingsManager.getDisplayMode() == 6 ? "selected" : "") + R"rawliteral(>Display aus</option>
+                    <option value="7" )rawliteral" + String(settingsManager.getDisplayMode() == 6 ? "selected" : "") + R"rawliteral(>Pong</option>
+                    <option value="6" )rawliteral" + String(settingsManager.getDisplayMode() == 7 ? "selected" : "") + R"rawliteral(>Display aus</option>
                 </select>
             </div>
             
