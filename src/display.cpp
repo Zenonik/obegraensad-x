@@ -469,6 +469,9 @@ void Display::animateCheckmark() {
         setBrightness(255); update(); delay(80);
         setBrightness(150); update(); delay(80);
     }
+
+    brightness = settingsManager.getBrightness();
+    setBrightness(brightness);
 }
 
 // ------------------------------------------------------
