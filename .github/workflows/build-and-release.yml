@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,11 +26,32 @@ jobs:
       - name: Generate version.txt
         run: echo "v${{ github.run_number }}" > version.txt
 
-      - name: Create Release
+      # === AUTOMATISCHER CHANGELOG ===
+      - name: Install Ruby and changelog generator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby-full
+          gem install github_changelog_generator
+
+      - name: Generate changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "")
+          echo "Letztes Tag: $LAST_TAG"
+          github_changelog_generator \
+            --user ${{ github.repository_owner }} \
+            --project $(basename ${{ github.repository }}) \
+            --token ${{ secrets.GITHUB_TOKEN }} \
+            --since-tag "$LAST_TAG" \
+            --future-release "v${{ github.run_number }}" \
+            --output CHANGELOG.md
+
+      # === RELEASE ERSTELLEN ===
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
           name: "Firmware v${{ github.run_number }}"
+          body_path: CHANGELOG.md
           files: |
             .pio/build/esp32dev/firmware.bin
             version.txt
