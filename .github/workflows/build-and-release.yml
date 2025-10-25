@@ -9,9 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # --- Quellcode holen ---
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- Python / PlatformIO vorbereiten ---
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -20,18 +22,24 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
 
+      # --- Firmware bauen ---
       - name: Build firmware
         run: pio run
 
+      # --- Versionstext erzeugen ---
       - name: Generate version.txt
         run: echo "v${{ github.run_number }}" > version.txt
 
-      # === AUTOMATISCHER CHANGELOG ===
-      - name: Install Ruby and changelog generator
+      # === AUTOMATISCHER CHANGELOG (Option A) ===
+      - name: Install Ruby and changelog generator (user install)
         run: |
           sudo apt-get update
           sudo apt-get install -y ruby-full
-          gem install github_changelog_generator
+          gem install --user-install github_changelog_generator
+
+          # Pfad zum lokalen Gem-Bin-Ordner dynamisch ermitteln und für spätere Schritte verfügbar machen
+          GEM_PATH=$(ruby -e 'print RbConfig::CONFIG["ruby_version"]')
+          echo "$HOME/.local/share/gem/ruby/$GEM_PATH/bin" >> $GITHUB_PATH
 
       - name: Generate changelog
         run: |
@@ -45,7 +53,7 @@ jobs:
             --future-release "v${{ github.run_number }}" \
             --output CHANGELOG.md
 
-      # === RELEASE ERSTELLEN ===
+      # --- Release erstellen ---
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
