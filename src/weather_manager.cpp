@@ -7,7 +7,7 @@ WeatherManager weatherManager;
 
 void WeatherManager::begin(const String& c) {
     city = c;
-    update();
+    update(false);
 }
 
 static String mapCondition(const String& raw) {
@@ -23,7 +23,7 @@ static String mapCondition(const String& raw) {
     return "Unknown";
 }
 
-void WeatherManager::update(const bool withoutCheckmark = false) {
+void WeatherManager::update(const bool withoutCheckmark) {
     // Alle 30 Minuten aktualisieren
     if (millis() - lastUpdate < 30UL * 60UL * 1000UL && lastUpdate != 0) return;
     lastUpdate = millis();
