@@ -1,12 +1,75 @@
-name: Build and Release Firmware
+name: Build, Test and Release Firmware
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build:
+  # -------------------
+  # Job 1: Build + Tests
+  # -------------------
+  test:
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        id: build
+        run: pio run
+
+      - name: Run Unit Tests
+        id: tests
+        run: pio test
+
+      # --- Badge für PASSED ---
+      - name: Update badge on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const badge = '![Tests](https://img.shields.io/badge/tests-PASSED-brightgreen)';
+            fs.writeFileSync('TEST_STATUS.md', badge);
+            console.log("Badge created:", badge);
+
+      # --- Badge für FAILED ---
+      - name: Update badge on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const badge = '![Tests](https://img.shields.io/badge/tests-FAILED-red)';
+            fs.writeFileSync('TEST_STATUS.md', badge);
+            console.log("Badge created:", badge);
+
+      - name: Commit test badge
+        if: success() || failure()
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git add TEST_STATUS.md
+          git commit -m "Update test badge"
+          git push origin main
+
+  # -------------------
+  # Job 2: Release
+  # -------------------
+  release:
+    runs-on: ubuntu-latest
+    needs: test  # läuft nur wenn Test-Job erfolgreich
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,7 +88,25 @@ jobs:
       - name: Generate version.txt
         run: echo "v${{ github.run_number }}" > version.txt
 
-      - name: Create Release
+      # --- Git-Tags ---
+      - name: Ensure initial tag exists
+        run: |
+          git fetch --tags
+          if [ -z "$(git tag)" ]; then
+            git config user.name "${{ github.actor }}"
+            git config user.email "${{ github.actor }}@users.noreply.github.com"
+            git tag v0
+            git push origin v0
+
+      - name: Create and push new tag
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag v${{ github.run_number }}
+          git push origin v${{ github.run_number }}
+
+      # --- GitHub Release erstellen ---
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
