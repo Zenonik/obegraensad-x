@@ -14,6 +14,7 @@
 #include "version.h"
 #include "pong.h"
 #include "matrix_rain.h"
+#include <math.h>
 
 // ======================================================
 // 🧩 GLOBALS
@@ -272,17 +273,36 @@ void updateDisplay()
 
     case 7: // 📶 WiFi Signal
     {
-        int rssi = wifiConnection.getRSSI(); // typically negative dBm
-        // Map RSSI (-90..-30) to 0..16 bars
+        int rssi = wifiConnection.getRSSI();
         int clamped = constrain(rssi, -90, -30);
-        int bars = map(clamped, -90, -30, 0, 16);
-        display.clear();
-        for (int x = 0; x < 16; ++x) {
-            int height = (x < bars) ? (1 + (x * 15) / 15) : 0; // gradual rising
-            for (int y = 15; y >= 16 - height; --y) {
-                display.setPixel(x, y, true);
+
+        // Map RSSI to number of arcs (0..3). Dot is always drawn.
+        int arcs = 0;
+        if (clamped > -80) arcs = 1;     // weak
+        if (clamped > -67) arcs = 2;     // medium
+        if (clamped > -55) arcs = 3;     // strong
+
+        const int cx = 8;   // center x
+        const int cy = 15;  // baseline y (bottom)
+
+        auto drawArc = [&](int radius) {
+            for (int dx = -radius; dx <= radius; ++dx) {
+                int x = cx + dx;
+                if (x < 0 || x > 15) continue;
+                float inside = (float)(radius * radius - dx * dx);
+                if (inside < 0.0f) continue;
+                int y = cy - (int)lroundf(sqrtf(inside));
+                if (y >= 0 && y < 16) display.setPixel((uint8_t)x, (uint8_t)y, true);
             }
-        }
+        };
+
+        display.clear();
+        // Center dot
+        display.setPixel(cx, cy, true);
+        // Arcs from inner to outer
+        if (arcs >= 1) drawArc(3);
+        if (arcs >= 2) drawArc(6);
+        if (arcs >= 3) drawArc(9);
         display.update();
         break;
     }

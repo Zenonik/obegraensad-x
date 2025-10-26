@@ -42,7 +42,16 @@ void MatrixRain::update() {
 
     // advance columns
     for (uint8_t x = 0; x < 16; ++x) {
-        if (headY[x] < 0 && random(100) < 12) spawnColumn(x);
+        // spawn only if neighbors are inactive to avoid side-by-side streams
+        auto neighborsActive = [&](uint8_t xi) {
+            bool leftActive = (xi > 0) && (headY[xi - 1] >= 0);
+            bool rightActive = (xi < 15) && (headY[xi + 1] >= 0);
+            return leftActive || rightActive;
+        };
+
+        if (headY[x] < 0 && random(100) < 12 && !neighborsActive(x)) {
+            spawnColumn(x);
+        }
         if (headY[x] >= 0 && now - lastStep[x] >= speedMs[x]) {
             lastStep[x] = now;
             headY[x]++;
@@ -59,7 +68,7 @@ void MatrixRain::update() {
 
     uint8_t globalBrightness = settingsManager.getBrightness();
     // Head = full brightness via display.setPixel
-    // Trail = dithered: show only on some pwm phases -> effectively dimmer
+    // Trail = stronger dimming via PWM phase masking
 
     for (uint8_t x = 0; x < 16; ++x) {
         if (headY[x] < 0) continue;
@@ -71,19 +80,13 @@ void MatrixRain::update() {
                 // head at full brightness
                 disp.setPixel(x, y, true);
             } else {
-                // trail dimming: farther segments are shown fewer phases
-                // steps: d1 ~75%, d2 ~50%, d3+ ~25% of frames
+                // trail dimming: d1 ~50%, d2+ ~25% of frames
                 bool on = false;
                 if (d == 1) {
-                    on = (pwmPhase != 0);           // 3/4
-                } else if (d == 2) {
                     on = (pwmPhase % 2 == 0);       // 2/4
                 } else {
                     on = (pwmPhase == 0);           // 1/4
                 }
-
-                // add a small texture randomness
-                if (((x + y + d + (now >> 6)) & 0x03) == 0) on = !on;
 
                 if (on) disp.setPixel(x, y, true);
             }
