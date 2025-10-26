@@ -11,7 +11,7 @@
 // Anzahl der verfügbaren Anzeigemodi (0..N)
 // 0: Uhrzeit, 1: Sekunden, 2: Datum, 3: Wetter,
 // 4: Auto Uhrzeit/Sekunden, 5: Game of Life, 6: Pong,
-// 7: Display aus, 8: WiFi-Signal, 9: Matrix Rain
+// 7: WiFi-Signal, 8: Matrix Rain, 9: Display aus (immer letzter)
 #define DISPLAYMODES 9
 
 #define DISPLAY_WIDTH 16
