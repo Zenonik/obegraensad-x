@@ -11,6 +11,9 @@ SettingsManager::SettingsManager() {
     settings.brightness = DEFAULT_BRIGHTNESS;
     settings.displayMode = DEFAULT_MODE;
     settings.autoSync = DEFAULT_AUTOSYNC;
+    // Standard-Stadt aus Konfiguration übernehmen
+    strncpy(settings.city, CITY, CITY_MAX_LEN - 1);
+    settings.city[CITY_MAX_LEN - 1] = '\0';
     settings.magic = EEPROM_MAGIC;
 }
 
@@ -64,6 +67,8 @@ void SettingsManager::reset() {
     settings.brightness = DEFAULT_BRIGHTNESS;
     settings.displayMode = DEFAULT_MODE;
     settings.autoSync = DEFAULT_AUTOSYNC;
+    strncpy(settings.city, CITY, CITY_MAX_LEN - 1);
+    settings.city[CITY_MAX_LEN - 1] = '\0';
     settings.magic = EEPROM_MAGIC;
     save();
     Serial.println("🔄 [Settings] Zurückgesetzt");
@@ -77,6 +82,7 @@ bool SettingsManager::validate() {
     if (settings.version != EEPROM_VERSION) return false;
     if (settings.brightness < 10 || settings.brightness > 255) return false;
     if (settings.displayMode > DISPLAYMODES) return false;
+    if (settings.city[0] == '\0') return false;
     return true;
 }
 
@@ -115,4 +121,27 @@ void SettingsManager::setAutoSync(bool enabled) {
         save();
         Serial.printf("[Settings] AutoSync: %s\n", enabled ? "An" : "Aus");
     }
+}
+
+// =========================================
+//  Stadt (Wetter) Getter / Setter
+// =========================================
+String SettingsManager::getCity() { return String(settings.city); }
+
+void SettingsManager::setCity(const String& city) {
+    String trimmed = city;
+    trimmed.trim();
+    if (trimmed.length() == 0) {
+        Serial.println("⚠️  [Settings] Leerer Stadtname ignoriert");
+        return;
+    }
+    // Nur speichern, wenn sich etwas geändert hat
+    if (trimmed.equals(String(settings.city))) {
+        return;
+    }
+
+    strncpy(settings.city, trimmed.c_str(), CITY_MAX_LEN - 1);
+    settings.city[CITY_MAX_LEN - 1] = '\0';
+    save();
+    Serial.printf("[Settings] Neue Stadt: %s\n", settings.city);
 }

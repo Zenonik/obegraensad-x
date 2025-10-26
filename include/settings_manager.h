@@ -6,9 +6,14 @@
 
 // EEPROM-Konfiguration
 #define EEPROM_MAGIC 0x42AF
-#define EEPROM_VERSION 1
+#define EEPROM_VERSION 2
 #define EEPROM_ADDR 0
 #define EEPROM_SIZE 64
+
+// Speichergrenze für Stadtnamen (inkl. Nullterminator)
+#ifndef CITY_MAX_LEN
+#define CITY_MAX_LEN 32
+#endif
 
 // Defaultwerte
 constexpr uint8_t DEFAULT_BRIGHTNESS = 100;
@@ -20,6 +25,7 @@ struct Settings {
     uint8_t brightness;
     uint8_t displayMode;
     bool autoSync;
+    char city[CITY_MAX_LEN];
     uint16_t magic;
 };
 
@@ -41,6 +47,10 @@ public:
 
     bool getAutoSync();
     void setAutoSync(bool enabled);
+
+    // Wetter: Stadt (Persistenz)
+    String getCity();
+    void setCity(const String& city);
 
 private:
     Settings settings;
