@@ -10,6 +10,18 @@ void WeatherManager::begin(const String& c) {
     update(false);
 }
 
+void WeatherManager::setCity(const String& c) {
+    if (c.length() == 0) return;
+    if (city == c) return;
+    city = c;
+    // Erzwinge ein Update beim nächsten Aufruf
+    lastUpdate = 0;
+}
+
+String WeatherManager::getCity() const {
+    return city;
+}
+
 static String mapCondition(const String& raw) {
     String r = raw;
     r.toLowerCase();

@@ -79,7 +79,8 @@ void setup()
     display.animateCheckmark();
 
     timeManager.begin();
-    weatherManager.begin(CITY);
+    // Initialisiere Wetter mit gespeicherter Stadt
+    weatherManager.begin(settingsManager.getCity());
     webServer.begin();
 
     Serial.println("[System] Bereit unter: http://" + wifiConnection.getIP());

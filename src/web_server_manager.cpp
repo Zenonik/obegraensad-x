@@ -8,6 +8,8 @@
 #include <HTTPUpdate.h>
 #include <WiFiClient.h>
 #include "version.h"
+#include "weather_manager.h"
+#include <ArduinoJson.h>
 
 WebServerManager webServer;
 
@@ -145,7 +147,7 @@ String WebServerManager::getHTML() {
             color: #667eea;
             margin-top: 10px;
         }
-        select {
+        select, input[type="text"] {
             width: 100%;
             padding: 12px;
             border: 2px solid #ddd;
@@ -154,7 +156,7 @@ String WebServerManager::getHTML() {
             background: white;
             cursor: pointer;
         }
-        select:focus {
+        select:focus, input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -259,6 +261,11 @@ String WebServerManager::getHTML() {
                     <option value="7" )rawliteral" + String(settingsManager.getDisplayMode() == 7 ? "selected" : "") + R"rawliteral(>Display aus</option>
                 </select>
             </div>
+
+            <div class="form-group">
+                <label for="city">Wetter · Stadt</label>
+                <input type="text" id="city" name="city" placeholder="z. B. Berlin" value=")rawliteral" + settingsManager.getCity() + R"rawliteral(" />
+            </div>
             
             <div class="button-group">
                 <button type="submit" class="btn-primary">Speichern</button>
@@ -291,7 +298,8 @@ String WebServerManager::getHTML() {
             e.preventDefault();
             const data = {
                 brightness: parseInt(document.getElementById('brightness').value),
-                mode: parseInt(document.getElementById('mode').value)
+                mode: parseInt(document.getElementById('mode').value),
+                city: (document.getElementById('city').value || '').trim()
             };
             
             try {
@@ -300,8 +308,11 @@ String WebServerManager::getHTML() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                
-                showStatus('Einstellungen gespeichert!', 'success');
+                if (response.ok) {
+                    showStatus('Einstellungen gespeichert!', 'success');
+                } else {
+                    showStatus('Fehler beim Speichern!', 'error');
+                }
             } catch (error) {
                 showStatus('Fehler beim Speichern!', 'error');
             }
@@ -354,7 +365,8 @@ void WebServerManager::handleRoot() {
 void WebServerManager::handleGetSettings() {
     String json = "{";
     json += "\"brightness\":" + String(settingsManager.getBrightness()) + ",";
-    json += "\"mode\":" + String(settingsManager.getDisplayMode());
+    json += "\"mode\":" + String(settingsManager.getDisplayMode()) + ",";
+    json += "\"city\":\"" + settingsManager.getCity() + "\"";
     json += "}";
     
     server.send(200, "application/json", json);
@@ -364,22 +376,32 @@ void WebServerManager::handleSaveSettings() {
     if (server.hasArg("plain")) {
         String body = server.arg("plain");
         
-        // Parse JSON (einfach)
-        int brightnessPos = body.indexOf("\"brightness\":");
-        int modePos = body.indexOf("\"mode\":");
-        
-        if (brightnessPos > 0) {
-            int value = body.substring(brightnessPos + 13).toInt();
+        DynamicJsonDocument doc(512);
+        DeserializationError err = deserializeJson(doc, body);
+        if (err) {
+            server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"invalid json\"}");
+            return;
+        }
+
+        if (doc.containsKey("brightness")) {
+            int value = doc["brightness"].as<int>();
             settingsManager.setBrightness(value);
             display.setBrightness(value);
         }
-        
-        if (modePos > 0) {
-            int value = body.substring(modePos + 7).toInt();
+        if (doc.containsKey("mode")) {
+            int value = doc["mode"].as<int>();
             settingsManager.setDisplayMode(value);
         }
-        
-        settingsManager.save();
+        if (doc.containsKey("city")) {
+            String value = String(doc["city"].as<const char*>());
+            if (value.length() > 0) {
+                settingsManager.setCity(value);
+                weatherManager.setCity(settingsManager.getCity());
+                // Sofort aktualisieren (ohne Haken-Animation)
+                weatherManager.update(true);
+            }
+        }
+
         server.send(200, "application/json", "{\"status\":\"ok\"}");
     } else {
         server.send(400, "application/json", "{\"status\":\"error\"}");
