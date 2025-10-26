@@ -67,7 +67,7 @@ void WeatherManager::update(const bool withoutCheckmark) {
     http.end();
 
     // JSON kann sehr groß sein → größeren Buffer
-    DynamicJsonDocument doc(16384);
+    JsonDocument doc;
     DeserializationError err = deserializeJson(doc, payload);
 
     if (err) {

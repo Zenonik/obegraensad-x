@@ -376,23 +376,23 @@ void WebServerManager::handleSaveSettings() {
     if (server.hasArg("plain")) {
         String body = server.arg("plain");
         
-        DynamicJsonDocument doc(512);
+        JsonDocument doc;
         DeserializationError err = deserializeJson(doc, body);
         if (err) {
             server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"invalid json\"}");
             return;
         }
 
-        if (doc.containsKey("brightness")) {
+        if (doc["brightness"].is<int>()) {
             int value = doc["brightness"].as<int>();
             settingsManager.setBrightness(value);
             display.setBrightness(value);
         }
-        if (doc.containsKey("mode")) {
+        if (doc["mode"].is<int>()) {
             int value = doc["mode"].as<int>();
             settingsManager.setDisplayMode(value);
         }
-        if (doc.containsKey("city")) {
+        if (doc["city"].is<const char*>()) {
             String value = String(doc["city"].as<const char*>());
             if (value.length() > 0) {
                 settingsManager.setCity(value);
