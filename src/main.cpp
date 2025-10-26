@@ -13,12 +13,14 @@
 #include <Update.h>
 #include "version.h"
 #include "pong.h"
+#include "matrix_rain.h"
 
 // ======================================================
 // 🧩 GLOBALS
 // ======================================================
 GameOfLife life(display);
 Pong pong;
+MatrixRain matrixRain(display);
 
 int previousMode = -1;
 unsigned long lastDisplayUpdate = 0;
@@ -138,6 +140,10 @@ void loop()
     {
         pong.update();
     }
+    else if (matrixRain.isRunning())
+    {
+        matrixRain.update();
+    }
 
     delay(10);
 }
@@ -195,6 +201,10 @@ void updateDisplay()
         else if (previousMode == 6 && pong.isRunning())
         {
             pong.stop();
+        }
+        else if (previousMode == 8 && matrixRain.isRunning())
+        {
+            matrixRain.stop();
         }
         previousMode = mode;
     }
@@ -260,7 +270,28 @@ void updateDisplay()
             pong.start();
         break;
 
-    case 7: // ⚫ Display aus
+    case 7: // 📶 WiFi Signal
+    {
+        int rssi = wifiConnection.getRSSI(); // typically negative dBm
+        // Map RSSI (-90..-30) to 0..16 bars
+        int clamped = constrain(rssi, -90, -30);
+        int bars = map(clamped, -90, -30, 0, 16);
+        display.clear();
+        for (int x = 0; x < 16; ++x) {
+            int height = (x < bars) ? (1 + (x * 15) / 15) : 0; // gradual rising
+            for (int y = 15; y >= 16 - height; --y) {
+                display.setPixel(x, y, true);
+            }
+        }
+        display.update();
+        break;
+    }
+
+    case 8: // 💚 Matrix Rain
+        if (!matrixRain.isRunning()) matrixRain.start();
+        break;
+
+    case 9: // ⚫ Display aus (immer letzter Modus)
     default:
         display.clear();
         display.update();
