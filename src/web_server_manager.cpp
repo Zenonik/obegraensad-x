@@ -386,7 +386,9 @@ String WebServerManager::getHTML() {
 void WebServerManager::handleRoot() {
     // If connected to WiFi, redirect to hosted GitHub Pages UI
     if (wifiConnection.isConnected()) {
-        String redirectUrl = "https://zenonik.github.io/obegraensad-x/?device=http://" + wifiConnection.getIP();
+        // Prefer unique hostname for better UX when multiple devices exist
+        String deviceBase = String(WiFi.getHostname());
+        String redirectUrl = "https://zenonik.github.io/obegraensad-x/?device=http://" + deviceBase + ".local";
         setCORSHeaders();
         server.sendHeader("Location", redirectUrl, true);
         server.send(302, "text/plain", "");

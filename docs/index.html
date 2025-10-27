@@ -111,8 +111,9 @@
     const chip = document.createElement('div'); chip.className = 'chip'; chip.innerHTML = '<span class="dot"></span> erreichbar'; el.appendChild(chip);
 
     const row = document.createElement('div'); row.className = 'row';
-    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-primary'; linkHosted.href = withBase(`?device=http://${info.ip}`); linkHosted.textContent = 'In der Oberfläche öffnen';
-    const linkLocal  = document.createElement('a'); linkLocal.className = 'btn btn-secondary'; linkLocal.href = `http://${info.ip}/local`; linkLocal.textContent = 'Lokale UI';
+    const openTarget = info.hostname ? info.hostname : info.ip;
+    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-primary'; linkHosted.href = withBase(`?device=http://${openTarget}`); linkHosted.textContent = 'In der Oberfläche öffnen';
+    const linkLocal  = document.createElement('a'); linkLocal.className = 'btn btn-secondary'; linkLocal.href = `http://${openTarget}/local`; linkLocal.textContent = 'Lokale UI';
     linkLocal.target = '_blank'; linkHosted.target = '_self';
     row.appendChild(linkHosted); row.appendChild(linkLocal);
     el.appendChild(row);
@@ -157,6 +158,7 @@
           name: data.device || 'OBEGRÄNSAD-X',
           version: data.version || undefined,
           ssid: data.ssid || undefined,
+          hostname: (data.hostname ? `${data.hostname}.local` : undefined),
         }
       };
     } catch (e) {
@@ -223,6 +225,15 @@
   async function runScan() {
     if (isScanning) return; isScanning = true; gridEl.innerHTML = ''; discoveredByIp.clear(); updateProgress(0, 1);
     footerNote.textContent = 'Scanne lokales Netzwerk… dies kann 10–30 Sekunden dauern.';
+
+    // Quick try: mDNS hostname if the OS supports it
+    try {
+      const knownHost = 'obegraensad-x.local';
+      if (!discoveredByIp.has(knownHost)) {
+        const info = await checkIpForDevice(knownHost);
+        if (info) { discoveredByIp.set(knownHost, info); renderDeviceCard(info); }
+      }
+    } catch(_) { /* ignore */ }
 
     const selected = document.getElementById('subnetSelect').value;
     const prefixes = selected === 'auto' ? getAutoSubnets() : [selected];
