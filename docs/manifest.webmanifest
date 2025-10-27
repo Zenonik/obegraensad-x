@@ -1,0 +1,19 @@
+{
+  "name": "OBEGRÄNSAD-X",
+  "short_name": "OB-X",
+  "description": "Suche nach OBEGRÄNSAD-X Geräten im lokalen Netzwerk",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
