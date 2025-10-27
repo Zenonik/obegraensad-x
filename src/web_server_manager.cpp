@@ -41,6 +41,11 @@ void WebServerManager::begin() {
     server.on("/api/update", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/ping.gif", HTTP_GET, [this]() { handlePing(); });
     server.on("/api/ping.gif", HTTP_OPTIONS, [this]() { handleOptions(); });
+    // New neutral health endpoint to avoid ad blockers
+    server.on("/api/healthz", HTTP_GET, [this]() { handleHealth(); });
+    server.on("/api/healthz.gif", HTTP_GET, [this]() { handlePing(); });
+    server.on("/api/healthz.png", HTTP_GET, [this]() { handlePing(); });
+    server.on("/api/healthz", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.onNotFound([this]() { handleNotFound(); });
     
     server.begin();
@@ -453,7 +458,7 @@ void WebServerManager::handleStatus() {
     json += "\"date\":\"" + timeManager.getDateString() + "\",";
     json += "\"uptime\":" + String(millis() / 1000) + ",";
     json += "\"device\":\"OBEGRÄNSAD-X\",";
-    json += "\"hostname\":\"OBEGRAENSAD-X\",";
+    json += "\"hostname\":\"" + String(WiFi.getHostname()) + "\",";
     json += "\"version\":\"" + String(CURRENT_VERSION) + "\"";
     json += "}";
     
@@ -589,6 +594,12 @@ void WebServerManager::handlePing() {
     // Small GIF fingerprint for discovery from HTTPS UIs via <img>
     setCORSHeaders();
     server.send_P(200, "image/gif", reinterpret_cast<const char*>(OBEGRAENSAD_PING_GIF), sizeof(OBEGRAENSAD_PING_GIF));
+}
+
+void WebServerManager::handleHealth() {
+    // Lightweight text health endpoint (ad-blocker friendly)
+    setCORSHeaders();
+    server.send(200, "text/plain", "ok");
 }
 
 void WebServerManager::setCORSHeaders() {

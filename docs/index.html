@@ -69,7 +69,7 @@
         </select>
         <button id="scanBtn" class="btn btn-primary">Scan starten</button>
         <div style="display:flex; gap:8px;">
-          <input id="manualIp" class="input" placeholder="IP-Adresse hinzufügen, z. B. 192.168.0.23" />
+          <input id="manualIp" class="input" placeholder="IP oder Hostname (z. B. 192.168.0.23 oder obegraensad-x.local)" />
           <button id="addBtn" class="btn btn-secondary">Hinzufügen</button>
         </div>
       </div>
@@ -139,7 +139,7 @@
     }
   }
 
-  async function tryFetchStatus(ip) {
+  async function tryFetchStatus(ipOrHost) {
     // Avoid mixed active content when this page is served over HTTPS.
     // Browsers block fetch/XHR to http:// addresses from a secure context.
     // In that case we immediately fall back to the image-based probe below.
@@ -147,13 +147,13 @@
       return { ok: false, error: new Error('mixed-content-blocked') };
     }
     try {
-      const res = await fetchWithTimeout(`http://${ip}/api/status`, { timeoutMs: 1500 });
+      const res = await fetchWithTimeout(`http://${ipOrHost}/api/status`, { timeoutMs: 1500 });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       return {
         ok: true,
         info: {
-          ip,
+          ip: ipOrHost,
           name: data.device || 'OBEGRÄNSAD-X',
           version: data.version || undefined,
           ssid: data.ssid || undefined,
@@ -164,7 +164,7 @@
     }
   }
 
-  function probeViaImage(ip) {
+  function probeViaImage(ipOrHost) {
     return new Promise((resolve) => {
       const img = new Image();
       const timer = setTimeout(() => { cleanup(); resolve(false); }, 1600);
@@ -172,19 +172,19 @@
       img.onload = () => { cleanup(); resolve(true); };
       img.onerror = () => { cleanup(); resolve(false); };
       // random to avoid cache
-      img.src = `http://${ip}/api/ping.gif?ts=${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      img.src = `http://${ipOrHost}/api/healthz.gif?ts=${Date.now()}-${Math.random().toString(16).slice(2)}`;
     });
   }
 
-  async function checkIpForDevice(ip) {
+  async function checkIpForDevice(ipOrHost) {
     // First try JSON (best case if browser allows PNA from HTTPS)
-    const json = await tryFetchStatus(ip);
+    const json = await tryFetchStatus(ipOrHost);
     if (json.ok) return json.info;
 
     // Fallback: try an image ping. We cannot read metadata then.
-    const ok = await probeViaImage(ip);
+    const ok = await probeViaImage(ipOrHost);
     if (ok) {
-      return { ip, name: 'OBEGRÄNSAD-X' };
+      return { ip: ipOrHost, name: 'OBEGRÄNSAD-X' };
     }
     return null;
   }
@@ -238,7 +238,7 @@
     }
 
     if (discoveredByIp.size === 0) {
-      footerNote.innerHTML = 'Keine Geräte gefunden. Browser blockieren ggf. Scans aus einer HTTPS-Seite. Füge dein Gerät oben per IP hinzu oder öffne <span class="warn">http://obegraensad-x.local</span> falls unterstützt.';
+      footerNote.innerHTML = 'Keine Geräte gefunden. Browser blockieren ggf. Scans aus einer HTTPS-Seite. Füge dein Gerät oben per IP/Hostname hinzu oder öffne <span class="warn">http://obegraensad-x.local</span> falls unterstützt. Wenn uBlock Origin aktiv ist, erlaube diese Seite.';
     } else {
       footerNote.textContent = `Fertig – ${discoveredByIp.size} Gerät(e) gefunden.`;
     }
@@ -246,11 +246,15 @@
   }
 
   function addManualIp() {
-    const ip = (document.getElementById('manualIp').value || '').trim();
-    if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return;
-    if (discoveredByIp.has(ip)) return;
-    checkIpForDevice(ip).then(info => {
-      if (info) { discoveredByIp.set(ip, info); renderDeviceCard(info); }
+    const value = (document.getElementById('manualIp').value || '').trim();
+    if (!value) return;
+    // accept IP like 192.168.1.23 or hostname like obegraensad-x.local
+    const looksLikeIp = /^\d+\.\d+\.\d+\.\d+$/.test(value);
+    const looksLikeHost = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/i.test(value);
+    if (!looksLikeIp && !looksLikeHost) return;
+    if (discoveredByIp.has(value)) return;
+    checkIpForDevice(value).then(info => {
+      if (info) { discoveredByIp.set(value, info); renderDeviceCard(info); }
     });
   }
 
@@ -260,10 +264,10 @@
     if (!device) return;
     try {
       const u = new URL(device);
-      const ip = u.hostname;
-      if (ip) {
-        checkIpForDevice(ip).then(info => {
-          if (info) { discoveredByIp.set(ip, info); renderDeviceCard(info); }
+      const host = u.hostname;
+      if (host) {
+        checkIpForDevice(host).then(info => {
+          if (info) { discoveredByIp.set(host, info); renderDeviceCard(info); }
         });
       }
     } catch (_) { /* ignore */ }

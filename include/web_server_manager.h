@@ -23,6 +23,7 @@ private:
     void handleReset();
     void handleOptions();
     void handlePing();
+    void handleHealth();
     void handleNotFound();
     void handleOTAUpdate();
     void setCORSHeaders();

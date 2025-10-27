@@ -1,6 +1,8 @@
 #include "wifi_manager.h"
 #include "config.h"
 #include "display.h"
+#include "version.h"
+#include <ESPmDNS.h>
 
 WiFiConnectionManager wifiConnection;
 
@@ -29,8 +31,8 @@ bool WiFiConnectionManager::begin() {
     wifiManager.setConnectTimeout(30);
     wifiManager.setDebugOutput(true);
     
-    // Hostname setzen
-    WiFi.setHostname("OBEGRAENSAD-X");
+    // Hostname setzen (ASCII, kleingeschrieben für mDNS)
+    WiFi.setHostname("obegraensad-x");
     
     // Versuche Verbindung oder starte Captive Portal
     connected = wifiManager.autoConnect(AP_NAME, AP_PASSWORD);
@@ -43,6 +45,18 @@ bool WiFiConnectionManager::begin() {
         Serial.println("Signal: " + String(WiFi.RSSI()) + " dBm");
         Serial.println("Hostname: obegraensad-x.local");
         Serial.println("=================================\n");
+
+        // mDNS (Bonjour) aktivieren, damit http://obegraensad-x.local erreichbar ist
+        String mdnsName = String(WiFi.getHostname());
+        mdnsName.toLowerCase();
+        if (!MDNS.begin(mdnsName.c_str())) {
+            Serial.println("[mDNS] Start fehlgeschlagen");
+        } else {
+            MDNS.addService("http", "tcp", WEB_SERVER_PORT);
+            MDNS.addServiceTxt("http", "tcp", "id", "obegraensad-x");
+            MDNS.addServiceTxt("http", "tcp", "ver", CURRENT_VERSION);
+            Serial.println("[mDNS] Aktiv: http://" + mdnsName + ".local");
+        }
     } else {
         Serial.println("WiFi-Verbindung fehlgeschlagen!");
     }
