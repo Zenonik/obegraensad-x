@@ -16,6 +16,7 @@ private:
     
     void handleRoot();
     void handleLocal();
+    void handleDiscover();
     void handleGetSettings();
     void handleSaveSettings();
     void handleStatus();
@@ -29,6 +30,7 @@ private:
     void setCORSHeaders();
     
     String getHTML();
+    String getDiscoverHTML();
 };
 
 extern WebServerManager webServer;
