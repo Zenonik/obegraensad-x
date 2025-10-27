@@ -465,7 +465,7 @@ String WebServerManager::getDiscoverHTML() {
       const row = document.createElement('div'); row.className='row';
       const target = info.hostname ? info.hostname : info.ip;
       const a1 = document.createElement('a'); a1.className='btn btn-primary'; a1.href = `http://${target}/local`; a1.textContent='Lokale UI'; a1.target='_blank';
-      const a2 = document.createElement('a'); a2.className='btn btn-secondary'; a2.href = `https://zenonik.github.io/obegraensad-x/?device=http://${target}`; a2.textContent='In der Oberfläche öffnen'; a2.target='_self';
+      const a2 = document.createElement('a'); a2.className='btn btn-secondary'; a2.href = `https://zenonik.github.io/obegraensad-x/?device=http://${target}&insecure=1`; a2.textContent='In der Oberfläche öffnen'; a2.target='_self';
       row.appendChild(a2); row.appendChild(a1);
       el.appendChild(row);
       grid.appendChild(el);
@@ -575,7 +575,7 @@ void WebServerManager::handleRoot() {
     if (wifiConnection.isConnected()) {
         // Prefer unique hostname for better UX when multiple devices exist
         String deviceBase = String(WiFi.getHostname());
-        String redirectUrl = "https://zenonik.github.io/obegraensad-x/?device=http://" + deviceBase + ".local";
+        String redirectUrl = "https://zenonik.github.io/obegraensad-x/?device=http://" + deviceBase + ".local&insecure=1";
         setCORSHeaders();
         server.sendHeader("Location", redirectUrl, true);
         server.send(302, "text/plain", "");

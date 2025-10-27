@@ -72,6 +72,12 @@
           <input id="manualIp" class="input" placeholder="IP oder Hostname (z. B. 192.168.0.23 oder obegraensad-x.local)" />
           <button id="addBtn" class="btn btn-secondary">Hinzufügen</button>
         </div>
+        <div style="display:flex; align-items:center; gap:8px; min-width: 220px;">
+          <label style="font-size:12px; color: var(--muted); display:flex; align-items:center; gap:6px;">
+            <input id="forceHttp" type="checkbox" />
+            HTTP-Fetch erzwingen
+          </label>
+        </div>
       </div>
       <div class="progress"><div id="progressBar" class="bar"></div></div>
       <div id="grid" class="grid"></div>
@@ -86,6 +92,7 @@
 
   const discoveredByIp = new Map();
   let isScanning = false;
+  let forceHttp = false;
 
   function updateProgress(done, total) {
     const pct = total ? Math.round((done / total) * 100) : 0;
@@ -113,7 +120,7 @@
     const row = document.createElement('div'); row.className = 'row';
     const openTarget = info.hostname ? info.hostname : info.ip;
     const linkLocal  = document.createElement('a'); linkLocal.className = 'btn btn-primary'; linkLocal.href = `http://${openTarget}/local`; linkLocal.textContent = 'Lokale UI';
-    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-secondary'; linkHosted.href = withBase(`?device=http://${openTarget}`); linkHosted.textContent = 'In der Oberfläche öffnen';
+    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-secondary'; linkHosted.href = withBase(`?device=http://${openTarget}`) + (forceHttp ? (withBase(`?`).includes('?') ? '&' : '?') + 'insecure=1' : ''); linkHosted.textContent = 'In der Oberfläche öffnen';
     linkLocal.target = '_blank'; linkHosted.target = '_self';
     row.appendChild(linkHosted); row.appendChild(linkLocal);
     el.appendChild(row);
@@ -145,7 +152,7 @@
     // Browsers block fetch/XHR to http:// addresses from a secure context.
     // In that case we immediately fall back to the image-based probe below.
     // Some browsers also enforce Private Network Access preflights; we don't rely on JSON here.
-    if (window.isSecureContext && window.location.protocol === 'https:') {
+    if (window.isSecureContext && window.location.protocol === 'https:' && !forceHttp) {
       return { ok: false, error: new Error('mixed-content-blocked') };
     }
     try {
@@ -284,10 +291,27 @@
 
   // On load: only use hostname/device from query; do not auto-scan
   tryDeviceFromQuery();
-  // Promote the HTTP-local discovery flow when running under HTTPS
+
+  // Initialize insecure (HTTP) override based on localStorage or ?insecure=1
+  const forceEl = document.getElementById('forceHttp');
+  const params = new URL(window.location.href).searchParams;
+  forceHttp = (localStorage.getItem('ox_force_http') === '1') || (params.get('insecure') === '1');
+  if (forceEl) {
+    forceEl.checked = forceHttp;
+    forceEl.addEventListener('change', () => {
+      forceHttp = forceEl.checked;
+      localStorage.setItem('ox_force_http', forceHttp ? '1' : '0');
+    });
+  }
+
+  // Footer hints depending on context and override
   if (window.isSecureContext && window.location.protocol === 'https:') {
-    footerNote.innerHTML = 'Tipp: Öffne den lokalen Scanner deines Geräts unter <span class="warn">http://[IP-ODER-HOSTNAME]/discover</span> ' +
-      'und nutze dann „In der Oberfläche öffnen“. Alternativ kannst du oben die IP/den Hostnamen eingeben.';
+    if (!forceHttp) {
+      footerNote.innerHTML = 'Tipp: Aktiviere „HTTP‑Fetch erzwingen“, um direkte <span class="warn">http://</span>-Abfragen zu versuchen. ' +
+        'Browser können dies blockieren.';
+    } else {
+      footerNote.innerHTML = 'Falls Abfragen fehlschlagen: In den Seiteneinstellungen <span class="warn">„Unsichere Inhalte zulassen“</span> aktivieren und neu laden.';
+    }
   } else {
     footerNote.textContent = 'Tipp: Gib den Hostnamen ein (z. B. obegraensad-x-abcdef.local) oder öffne die Geräte-Seite und folge dem Link.';
   }
