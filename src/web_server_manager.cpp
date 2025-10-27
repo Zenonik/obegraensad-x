@@ -520,7 +520,7 @@ void WebServerManager::handleOTAUpdate() {
     if (Update.end() && Update.isFinished()) {
         Serial.printf("[OTA] Update erfolgreich (%d Bytes)\n", written);
         display.clear();
-        display.drawText2x2("DONE");
+        display.animateCheckmark();
         display.update();
         delay(1500);
         ESP.restart();
