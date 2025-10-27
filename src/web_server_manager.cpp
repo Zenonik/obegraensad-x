@@ -11,43 +11,18 @@
 #include "weather_manager.h"
 #include <ArduinoJson.h>
 
-// 1x1 transparent GIF used for cross-origin image-based discovery
-static const uint8_t PROGMEM OBEGRAENSAD_PING_GIF[] = {
-    0x47,0x49,0x46,0x38,0x39,0x61,0x01,0x00,0x01,0x00,0x80,0x00,0x00,
-    0x00,0x00,0x00,0xFF,0xFF,0xFF,0x21,0xF9,0x04,0x01,0x00,0x00,0x00,
-    0x00,0x2C,0x00,0x00,0x00,0x00,0x01,0x00,0x01,0x00,0x00,0x02,0x02,
-    0x4C,0x01,0x00,0x3B
-};
-
 WebServerManager webServer;
 
 WebServerManager::WebServerManager() : server(WEB_SERVER_PORT) {}
 
 void WebServerManager::begin() {
-    server.on("/", HTTP_GET, [this]() { handleRoot(); });
-    server.on("/", HTTP_OPTIONS, [this]() { handleOptions(); });
-    // fallback to legacy local UI if needed
-    server.on("/local", HTTP_GET, [this]() { handleLocal(); });
-    // local HTTP-only discovery UI to avoid HTTPS mixed-content
-    server.on("/discover", HTTP_GET, [this]() { handleDiscover(); });
+    server.on("/", [this]() { handleRoot(); });
     server.on("/api/settings", HTTP_GET, [this]() { handleGetSettings(); });
     server.on("/api/settings", HTTP_POST, [this]() { handleSaveSettings(); });
-    server.on("/api/settings", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/restart", HTTP_POST, [this]() { handleRestart(); });
-    server.on("/api/restart", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/reset", HTTP_POST, [this]() { handleReset(); });
-    server.on("/api/reset", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/status", HTTP_GET, [this]() { handleStatus(); });
-    server.on("/api/status", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/update", HTTP_POST, [this]() { handleOTAUpdate(); });
-    server.on("/api/update", HTTP_OPTIONS, [this]() { handleOptions(); });
-    server.on("/api/ping.gif", HTTP_GET, [this]() { handlePing(); });
-    server.on("/api/ping.gif", HTTP_OPTIONS, [this]() { handleOptions(); });
-    // New neutral health endpoint to avoid ad blockers
-    server.on("/api/healthz", HTTP_GET, [this]() { handleHealth(); });
-    server.on("/api/healthz.gif", HTTP_GET, [this]() { handlePing(); });
-    server.on("/api/healthz.png", HTTP_GET, [this]() { handlePing(); });
-    server.on("/api/healthz", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.onNotFound([this]() { handleNotFound(); });
     
     server.begin();
@@ -385,216 +360,11 @@ String WebServerManager::getHTML() {
     return html;
 }
 
-String WebServerManager::getDiscoverHTML() {
-    String html = R"rawliteral(
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OBEGRÄNSAD-X – Lokaler Gerätescanner</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; margin: 0; }
-    .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
-    .card { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
-    h1 { margin: 0 0 6px; font-size: 24px; }
-    p.sub { margin: 0 0 16px; color: #6b7280; font-size: 14px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-    .select, .input { padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 15px; }
-    .btn { border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer; font-size: 15px; }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-secondary { background: #e5e7eb; color: #111827; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
-    .dev { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background:#fff; }
-    .kv { color:#6b7280; font-size: 14px; margin-top: 4px; }
-    .chip { display:inline-flex; align-items:center; gap:6px; background:#eef2ff; color:#4338ca; padding:6px 8px; border-radius:999px; font-size:12px; }
-    .dot { width:8px; height:8px; border-radius:50%; background:#10b981; }
-    .progress { height:6px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
-    .bar { height:100%; width:0; background:#667eea; transition:width .2s ease; }
-    .warn { color:#b45309; }
-  </style>
-  <script>
-    // This page is served from the device over HTTP, so mixed-content restrictions do not apply.
-    const gridEl = document.addEventListener ? null : null;
-  </script>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>OBEGRÄNSAD-X</h1>
-      <p class="sub">Lokaler Gerätescanner (HTTP) – nutzbar auch von https-Seiten aus, indem Sie diesen Link öffnen.</p>
-      <div class="row">
-        <select id="subnetSelect" class="select">
-          <option value="auto">Automatisch – 192.168.0/1, 10.0.0, 10.1.1</option>
-          <option value="192.168.0">192.168.0.0/24</option>
-          <option value="192.168.1">192.168.1.0/24</option>
-          <option value="10.0.0">10.0.0.0/24</option>
-          <option value="10.1.1">10.1.1.0/24</option>
-        </select>
-        <button id="scanBtn" class="btn btn-primary">Scan starten</button>
-        <input id="manualIp" class="input" placeholder="IP/Hostname (z. B. 192.168.0.23 oder obegraensad-x.local)" />
-        <button id="addBtn" class="btn btn-secondary">Hinzufügen</button>
-      </div>
-      <div class="progress"><div id="progressBar" class="bar"></div></div>
-      <div id="grid" class="grid"></div>
-      <p id="footerNote" class="sub"></p>
-    </div>
-  </div>
-  <script>
-    const grid = document.getElementById('grid');
-    const progress = document.getElementById('progressBar');
-    const footer = document.getElementById('footerNote');
-
-    const seen = new Map();
-    let scanning = false;
-
-    function updateProgress(done, total) {
-      const pct = total ? Math.round((done / total) * 100) : 0;
-      progress.style.width = pct + '%';
-    }
-
-    function render(info) {
-      const id = 'dev-' + info.ip.replaceAll('.', '-');
-      if (document.getElementById(id)) return;
-      const el = document.createElement('div'); el.className = 'dev'; el.id = id;
-      const h = document.createElement('h3'); h.textContent = info.name || 'OBEGRÄNSAD-X'; el.appendChild(h);
-      const kv1 = document.createElement('div'); kv1.className='kv'; kv1.textContent = 'IP: ' + info.ip; el.appendChild(kv1);
-      if (info.version) { const kv2 = document.createElement('div'); kv2.className='kv'; kv2.textContent = 'Version: ' + info.version; el.appendChild(kv2); }
-      if (info.ssid) { const kv3 = document.createElement('div'); kv3.className='kv'; kv3.textContent = 'WLAN: ' + info.ssid; el.appendChild(kv3); }
-      const chip = document.createElement('div'); chip.className='chip'; chip.innerHTML = '<span class="dot"></span> erreichbar'; el.appendChild(chip);
-      const row = document.createElement('div'); row.className='row';
-      const target = info.hostname ? info.hostname : info.ip;
-      const a1 = document.createElement('a'); a1.className='btn btn-primary'; a1.href = `http://${target}/local`; a1.textContent='Lokale UI'; a1.target='_blank';
-      const a2 = document.createElement('a'); a2.className='btn btn-secondary'; a2.href = `https://zenonik.github.io/obegraensad-x/?device=http://${target}&insecure=1`; a2.textContent='In der Oberfläche öffnen'; a2.target='_self';
-      row.appendChild(a2); row.appendChild(a1);
-      el.appendChild(row);
-      grid.appendChild(el);
-    }
-
-    async function fetchWithTimeout(resource, options = {}) {
-      const { timeoutMs = 1500, ...opts } = options;
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch(resource, { ...opts, signal: controller.signal, cache: 'no-store' });
-        clearTimeout(id);
-        return res;
-      } catch (e) {
-        clearTimeout(id);
-        throw e;
-      }
-    }
-
-    async function checkIp(ipOrHost) {
-      try {
-        const res = await fetchWithTimeout(`http://${ipOrHost}/api/status`, { timeoutMs: 1500 });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        return {
-          ip: ipOrHost,
-          name: data.device || 'OBEGRÄNSAD-X',
-          version: data.version || undefined,
-          ssid: data.ssid || undefined,
-          hostname: (data.hostname ? `${data.hostname}.local` : undefined),
-        };
-      } catch (_) {
-        // try image ping fallback
-        const ok = await new Promise((resolve) => {
-          const img = new Image();
-          const t = setTimeout(() => { img.onload = img.onerror = null; resolve(false); }, 1600);
-          img.onload = () => { clearTimeout(t); img.onload = img.onerror = null; resolve(true); };
-          img.onerror = () => { clearTimeout(t); img.onload = img.onerror = null; resolve(false); };
-          img.src = `http://${ipOrHost}/api/healthz.gif?ts=${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        });
-        return ok ? { ip: ipOrHost, name: 'OBEGRÄNSAD-X' } : null;
-      }
-    }
-
-    function getAutoSubnets() { return ['192.168.0', '192.168.1', '10.0.0', '10.1.1']; }
-
-    async function scan(prefix, onProgress) {
-      const concurrency = 32; let current = 0; let done = 0; const total = 254;
-      return new Promise((resolve) => {
-        const next = async () => {
-          if (current >= 254) return;
-          const i = ++current; const ip = `${prefix}.${i}`;
-          try {
-            const info = await checkIp(ip);
-            if (info && !seen.has(ip)) { seen.set(ip, info); render(info); }
-          } catch {}
-          finally {
-            done++; onProgress(done, total);
-            if (current < 254) next(); else if (done >= total) resolve();
-          }
-        };
-        for (let k = 0; k < Math.min(concurrency, total); k++) next();
-      });
-    }
-
-    async function runScan() {
-      if (scanning) return; scanning = true; grid.innerHTML = ''; seen.clear(); updateProgress(0,1);
-      footer.textContent = 'Scanne lokales Netzwerk… dies kann 10–30 Sekunden dauern.';
-      const selected = document.getElementById('subnetSelect').value;
-      const prefixes = selected === 'auto' ? getAutoSubnets() : [selected];
-      let totalPrefixes = prefixes.length; let completed = 0;
-      for (const p of prefixes) {
-        await scan(p, (d,t) => {
-          const totalDone = (completed * 254) + d; const totalAll = totalPrefixes * 254;
-          updateProgress(totalDone, totalAll);
-        });
-        completed++;
-      }
-      if (seen.size === 0) {
-        footer.innerHTML = 'Keine Geräte gefunden. Stelle sicher, dass dein PC/Smartphone im selben WLAN ist. Du kannst das Gerät auch direkt unter <span class="warn">http://obegraensad-x.local</span> öffnen (wenn mDNS unterstützt wird).';
-      } else {
-        footer.textContent = `Fertig – ${seen.size} Gerät(e) gefunden.`;
-      }
-      scanning = false;
-    }
-
-    function addManual() {
-      const v = (document.getElementById('manualIp').value || '').trim(); if (!v) return;
-      const looksLikeIp = /^\d+\.\d+\.\d+\.\d+$/.test(v);
-      const looksLikeHost = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/i.test(v);
-      if (!looksLikeIp && !looksLikeHost) return;
-      if (seen.has(v)) return;
-      checkIp(v).then(info => { if (info) { seen.set(v, info); render(info); } });
-    }
-
-    document.getElementById('scanBtn').addEventListener('click', runScan);
-    document.getElementById('addBtn').addEventListener('click', addManual);
-    footer.textContent = 'Tipp: Öffne diese Seite über http://[IP]/discover von einem https-UI-Link, um die Gerätesuche zu nutzen.';
-  </script>
-</body>
-</html>
-)rawliteral";
-    return html;
-}
 void WebServerManager::handleRoot() {
-    // If connected to WiFi, redirect to hosted GitHub Pages UI
-    if (wifiConnection.isConnected()) {
-        // Prefer unique hostname for better UX when multiple devices exist
-        String deviceBase = String(WiFi.getHostname());
-        String redirectUrl = "https://zenonik.github.io/obegraensad-x/?device=http://" + deviceBase + ".local&insecure=1";
-        setCORSHeaders();
-        server.sendHeader("Location", redirectUrl, true);
-        server.send(302, "text/plain", "");
-        return;
-    }
-    // Otherwise show local (offline) UI
     server.send(200, "text/html", getHTML());
-}
-
-void WebServerManager::handleLocal() {
-    server.send(200, "text/html", getHTML());
-}
-
-void WebServerManager::handleDiscover() {
-    server.send(200, "text/html", getDiscoverHTML());
 }
 
 void WebServerManager::handleGetSettings() {
-    setCORSHeaders();
     String json = "{";
     json += "\"brightness\":" + String(settingsManager.getBrightness()) + ",";
     json += "\"mode\":" + String(settingsManager.getDisplayMode()) + ",";
@@ -605,7 +375,6 @@ void WebServerManager::handleGetSettings() {
 }
 
 void WebServerManager::handleSaveSettings() {
-    setCORSHeaders();
     if (server.hasArg("plain")) {
         String body = server.arg("plain");
         
@@ -642,42 +411,31 @@ void WebServerManager::handleSaveSettings() {
 }
 
 void WebServerManager::handleStatus() {
-    setCORSHeaders();
     String json = "{";
     json += "\"ssid\":\"" + wifiConnection.getSSID() + "\",";
     json += "\"ip\":\"" + wifiConnection.getIP() + "\",";
     json += "\"rssi\":" + String(wifiConnection.getRSSI()) + ",";
     json += "\"time\":\"" + timeManager.getTimeString() + "\",";
     json += "\"date\":\"" + timeManager.getDateString() + "\",";
-    json += "\"uptime\":" + String(millis() / 1000) + ",";
-    json += "\"device\":\"OBEGRÄNSAD-X\",";
-    json += "\"hostname\":\"" + String(WiFi.getHostname()) + "\",";
-    json += "\"version\":\"" + String(CURRENT_VERSION) + "\"";
+    json += "\"uptime\":" + String(millis() / 1000);
     json += "}";
     
     server.send(200, "application/json", json);
 }
 
 void WebServerManager::handleRestart() {
-    setCORSHeaders();
     server.send(200, "text/plain", "Restarting...");
     delay(1000);
     ESP.restart();
 }
 
 void WebServerManager::handleReset() {
-    setCORSHeaders();
     server.send(200, "text/plain", "Resetting WiFi...");
     delay(1000);
     wifiConnection.reset();
 }
 
 void WebServerManager::handleNotFound() {
-    if (server.method() == HTTP_OPTIONS) {
-        handleOptions();
-        return;
-    }
-    setCORSHeaders();
     if (!wifiConnection.isConnected()) {
         server.sendHeader("Location", "/", true);
         server.send(302, "text/plain", "");
@@ -687,7 +445,6 @@ void WebServerManager::handleNotFound() {
 }
 
 void WebServerManager::handleOTAUpdate() {
-    setCORSHeaders();
     Serial.println("[OTA] Firmware-Update angefordert (Web API)");
     server.send(200, "text/plain", "Starte Firmware-Update...");
 
@@ -776,30 +533,4 @@ void WebServerManager::handleOTAUpdate() {
     }
 
     httpUpdate.end();
-}
-
-void WebServerManager::handleOptions() {
-    setCORSHeaders();
-    server.send(204);
-}
-
-void WebServerManager::handlePing() {
-    // Small GIF fingerprint for discovery from HTTPS UIs via <img>
-    setCORSHeaders();
-    server.send_P(200, "image/gif", reinterpret_cast<const char*>(OBEGRAENSAD_PING_GIF), sizeof(OBEGRAENSAD_PING_GIF));
-}
-
-void WebServerManager::handleHealth() {
-    // Lightweight text health endpoint (ad-blocker friendly)
-    setCORSHeaders();
-    server.send(200, "text/plain", "ok");
-}
-
-void WebServerManager::setCORSHeaders() {
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    server.sendHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-    // For Chrome Private Network Access preflights from secure contexts
-    server.sendHeader("Access-Control-Allow-Private-Network", "true");
-    server.sendHeader("Access-Control-Max-Age", "600");
 }
