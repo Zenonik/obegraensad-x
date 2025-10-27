@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OBEGRÄNSAD-X – Geräte im Netzwerk</title>
+  <meta name="theme-color" content="#667eea" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/icon-maskable.svg" />
+  <link rel="mask-icon" href="./icons/icon.svg" color="#667eea" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="OB-X" />
   <style>
     :root {
       --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -129,6 +137,17 @@
   initFromQuery();
 
   footerNote.innerHTML = 'Hinweis: Diese Seite lädt keine Inhalte aus deinem LAN und erzeugt daher keine Mixed-Content-Warnungen. Nutze die Links, um die lokalen Seiten zu öffnen.';
+  </script>
+  <script>
+  // Register Service Worker for PWA support
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      const version = 'vdev';
+      navigator.serviceWorker.register('./service-worker.js?v=' + version, { scope: './' }).catch((err) => {
+        console.debug('SW registration failed', err);
+      });
+    });
+  }
   </script>
 </body>
 </html>
