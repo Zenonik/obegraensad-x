@@ -112,8 +112,8 @@
 
     const row = document.createElement('div'); row.className = 'row';
     const openTarget = info.hostname ? info.hostname : info.ip;
-    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-primary'; linkHosted.href = withBase(`?device=http://${openTarget}`); linkHosted.textContent = 'In der Oberfläche öffnen';
-    const linkLocal  = document.createElement('a'); linkLocal.className = 'btn btn-secondary'; linkLocal.href = `http://${openTarget}/local`; linkLocal.textContent = 'Lokale UI';
+    const linkLocal  = document.createElement('a'); linkLocal.className = 'btn btn-primary'; linkLocal.href = `http://${openTarget}/local`; linkLocal.textContent = 'Lokale UI';
+    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-secondary'; linkHosted.href = withBase(`?device=http://${openTarget}`); linkHosted.textContent = 'In der Oberfläche öffnen';
     linkLocal.target = '_blank'; linkHosted.target = '_self';
     row.appendChild(linkHosted); row.appendChild(linkLocal);
     el.appendChild(row);
@@ -226,15 +226,6 @@
     if (isScanning) return; isScanning = true; gridEl.innerHTML = ''; discoveredByIp.clear(); updateProgress(0, 1);
     footerNote.textContent = 'Scanne lokales Netzwerk… dies kann 10–30 Sekunden dauern.';
 
-    // Quick try: mDNS hostname if the OS supports it
-    try {
-      const knownHost = 'obegraensad-x.local';
-      if (!discoveredByIp.has(knownHost)) {
-        const info = await checkIpForDevice(knownHost);
-        if (info) { discoveredByIp.set(knownHost, info); renderDeviceCard(info); }
-      }
-    } catch(_) { /* ignore */ }
-
     const selected = document.getElementById('subnetSelect').value;
     const prefixes = selected === 'auto' ? getAutoSubnets() : [selected];
 
@@ -287,9 +278,9 @@
   document.getElementById('scanBtn').addEventListener('click', runScan);
   document.getElementById('addBtn').addEventListener('click', addManualIp);
 
-  // Auto-run: add device from query, then start scan after a short delay
+  // On load: only use hostname/device from query; do not auto-scan
   tryDeviceFromQuery();
-  setTimeout(runScan, 400);
+  footerNote.textContent = 'Tipp: Gib den Hostnamen ein (z. B. obegraensad-x-abcdef.local) oder öffne die Geräte-Seite und folge dem Link.';
   </script>
 </body>
 </html>
