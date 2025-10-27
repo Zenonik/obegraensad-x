@@ -15,13 +15,17 @@ private:
     WebServer server;
     
     void handleRoot();
+    void handleLocal();
     void handleGetSettings();
     void handleSaveSettings();
     void handleStatus();
     void handleRestart();
     void handleReset();
+    void handleOptions();
+    void handlePing();
     void handleNotFound();
     void handleOTAUpdate();
+    void setCORSHeaders();
     
     String getHTML();
 };

@@ -11,18 +11,36 @@
 #include "weather_manager.h"
 #include <ArduinoJson.h>
 
+// 1x1 transparent GIF used for cross-origin image-based discovery
+static const uint8_t PROGMEM OBEGRAENSAD_PING_GIF[] = {
+    0x47,0x49,0x46,0x38,0x39,0x61,0x01,0x00,0x01,0x00,0x80,0x00,0x00,
+    0x00,0x00,0x00,0xFF,0xFF,0xFF,0x21,0xF9,0x04,0x01,0x00,0x00,0x00,
+    0x00,0x2C,0x00,0x00,0x00,0x00,0x01,0x00,0x01,0x00,0x00,0x02,0x02,
+    0x4C,0x01,0x00,0x3B
+};
+
 WebServerManager webServer;
 
 WebServerManager::WebServerManager() : server(WEB_SERVER_PORT) {}
 
 void WebServerManager::begin() {
-    server.on("/", [this]() { handleRoot(); });
+    server.on("/", HTTP_GET, [this]() { handleRoot(); });
+    server.on("/", HTTP_OPTIONS, [this]() { handleOptions(); });
+    // fallback to legacy local UI if needed
+    server.on("/local", HTTP_GET, [this]() { handleLocal(); });
     server.on("/api/settings", HTTP_GET, [this]() { handleGetSettings(); });
     server.on("/api/settings", HTTP_POST, [this]() { handleSaveSettings(); });
+    server.on("/api/settings", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/restart", HTTP_POST, [this]() { handleRestart(); });
+    server.on("/api/restart", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/reset", HTTP_POST, [this]() { handleReset(); });
+    server.on("/api/reset", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/status", HTTP_GET, [this]() { handleStatus(); });
+    server.on("/api/status", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.on("/api/update", HTTP_POST, [this]() { handleOTAUpdate(); });
+    server.on("/api/update", HTTP_OPTIONS, [this]() { handleOptions(); });
+    server.on("/api/ping.gif", HTTP_GET, [this]() { handlePing(); });
+    server.on("/api/ping.gif", HTTP_OPTIONS, [this]() { handleOptions(); });
     server.onNotFound([this]() { handleNotFound(); });
     
     server.begin();
@@ -361,10 +379,24 @@ String WebServerManager::getHTML() {
 }
 
 void WebServerManager::handleRoot() {
+    // If connected to WiFi, redirect to hosted GitHub Pages UI
+    if (wifiConnection.isConnected()) {
+        String redirectUrl = "https://zenonik.github.io/obegraensad-x/?device=http://" + wifiConnection.getIP();
+        setCORSHeaders();
+        server.sendHeader("Location", redirectUrl, true);
+        server.send(302, "text/plain", "");
+        return;
+    }
+    // Otherwise show local (offline) UI
+    server.send(200, "text/html", getHTML());
+}
+
+void WebServerManager::handleLocal() {
     server.send(200, "text/html", getHTML());
 }
 
 void WebServerManager::handleGetSettings() {
+    setCORSHeaders();
     String json = "{";
     json += "\"brightness\":" + String(settingsManager.getBrightness()) + ",";
     json += "\"mode\":" + String(settingsManager.getDisplayMode()) + ",";
@@ -375,6 +407,7 @@ void WebServerManager::handleGetSettings() {
 }
 
 void WebServerManager::handleSaveSettings() {
+    setCORSHeaders();
     if (server.hasArg("plain")) {
         String body = server.arg("plain");
         
@@ -411,31 +444,42 @@ void WebServerManager::handleSaveSettings() {
 }
 
 void WebServerManager::handleStatus() {
+    setCORSHeaders();
     String json = "{";
     json += "\"ssid\":\"" + wifiConnection.getSSID() + "\",";
     json += "\"ip\":\"" + wifiConnection.getIP() + "\",";
     json += "\"rssi\":" + String(wifiConnection.getRSSI()) + ",";
     json += "\"time\":\"" + timeManager.getTimeString() + "\",";
     json += "\"date\":\"" + timeManager.getDateString() + "\",";
-    json += "\"uptime\":" + String(millis() / 1000);
+    json += "\"uptime\":" + String(millis() / 1000) + ",";
+    json += "\"device\":\"OBEGRÄNSAD-X\",";
+    json += "\"hostname\":\"OBEGRAENSAD-X\",";
+    json += "\"version\":\"" + String(CURRENT_VERSION) + "\"";
     json += "}";
     
     server.send(200, "application/json", json);
 }
 
 void WebServerManager::handleRestart() {
+    setCORSHeaders();
     server.send(200, "text/plain", "Restarting...");
     delay(1000);
     ESP.restart();
 }
 
 void WebServerManager::handleReset() {
+    setCORSHeaders();
     server.send(200, "text/plain", "Resetting WiFi...");
     delay(1000);
     wifiConnection.reset();
 }
 
 void WebServerManager::handleNotFound() {
+    if (server.method() == HTTP_OPTIONS) {
+        handleOptions();
+        return;
+    }
+    setCORSHeaders();
     if (!wifiConnection.isConnected()) {
         server.sendHeader("Location", "/", true);
         server.send(302, "text/plain", "");
@@ -445,6 +489,7 @@ void WebServerManager::handleNotFound() {
 }
 
 void WebServerManager::handleOTAUpdate() {
+    setCORSHeaders();
     Serial.println("[OTA] Firmware-Update angefordert (Web API)");
     server.send(200, "text/plain", "Starte Firmware-Update...");
 
@@ -533,4 +578,24 @@ void WebServerManager::handleOTAUpdate() {
     }
 
     httpUpdate.end();
+}
+
+void WebServerManager::handleOptions() {
+    setCORSHeaders();
+    server.send(204);
+}
+
+void WebServerManager::handlePing() {
+    // Small GIF fingerprint for discovery from HTTPS UIs via <img>
+    setCORSHeaders();
+    server.send_P(200, "image/gif", OBEGRAENSAD_PING_GIF, sizeof(OBEGRAENSAD_PING_GIF));
+}
+
+void WebServerManager::setCORSHeaders() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    // For Chrome Private Network Access preflights from secure contexts
+    server.sendHeader("Access-Control-Allow-Private-Network", "true");
+    server.sendHeader("Access-Control-Max-Age", "600");
 }
