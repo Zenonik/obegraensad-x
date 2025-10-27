@@ -60,26 +60,12 @@
         <p class="subtitle">Suche nach Geräten im lokalen Netzwerk</p>
       </div>
       <div class="controls">
-        <select id="subnetSelect" class="select">
-          <option value="auto">Automatisch – gängige Subnetze (192.168.0/1, 10.0.0, 10.1.1)</option>
-          <option value="192.168.0">192.168.0.0/24</option>
-          <option value="192.168.1">192.168.1.0/24</option>
-          <option value="10.0.0">10.0.0.0/24</option>
-          <option value="10.1.1">10.1.1.0/24</option>
-        </select>
-        <button id="scanBtn" class="btn btn-primary">Scan starten</button>
+        <button id="scanBtn" class="btn btn-primary">Lokalen Scanner öffnen (Hinweis)</button>
         <div style="display:flex; gap:8px;">
           <input id="manualIp" class="input" placeholder="IP oder Hostname (z. B. 192.168.0.23 oder obegraensad-x.local)" />
-          <button id="addBtn" class="btn btn-secondary">Hinzufügen</button>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px; min-width: 220px;">
-          <label style="font-size:12px; color: var(--muted); display:flex; align-items:center; gap:6px;">
-            <input id="forceHttp" type="checkbox" />
-            HTTP-Fetch erzwingen
-          </label>
+          <button id="addBtn" class="btn btn-secondary">Links anzeigen</button>
         </div>
       </div>
-      <div class="progress"><div id="progressBar" class="bar"></div></div>
       <div id="grid" class="grid"></div>
       <div class="footer" id="footerNote"></div>
     </div>
@@ -87,234 +73,62 @@
 
   <script>
   const gridEl = document.getElementById('grid');
-  const progressEl = document.getElementById('progressBar');
   const footerNote = document.getElementById('footerNote');
 
-  const discoveredByIp = new Map();
-  let isScanning = false;
-  let forceHttp = false;
-
-  function updateProgress(done, total) {
-    const pct = total ? Math.round((done / total) * 100) : 0;
-    progressEl.style.width = pct + '%';
-  }
-
-  function renderDeviceCard(info) {
-    const existing = document.getElementById('dev-' + info.ip.replaceAll('.', '-'));
-    if (existing) return;
+  function renderLinkCard(host) {
+    const id = 'dev-' + host.replaceAll('.', '-').replaceAll(':','-');
+    if (document.getElementById(id)) return;
 
     const el = document.createElement('div');
     el.className = 'card';
-    el.id = 'dev-' + info.ip.replaceAll('.', '-');
+    el.id = id;
 
     const title = document.createElement('h3');
-    title.textContent = info.name || 'OBEGRÄNSAD-X';
+    title.textContent = 'OBEGRÄNSAD-X';
     el.appendChild(title);
 
-    const kv1 = document.createElement('div'); kv1.className = 'kv'; kv1.textContent = 'IP: ' + info.ip; el.appendChild(kv1);
-    if (info.version) { const kv2 = document.createElement('div'); kv2.className = 'kv'; kv2.textContent = 'Version: ' + info.version; el.appendChild(kv2); }
-    if (info.ssid)    { const kv3 = document.createElement('div'); kv3.className = 'kv'; kv3.textContent = 'WLAN: ' + info.ssid; el.appendChild(kv3); }
-
-    const chip = document.createElement('div'); chip.className = 'chip'; chip.innerHTML = '<span class="dot"></span> erreichbar'; el.appendChild(chip);
+    const kv = document.createElement('div');
+    kv.className = 'kv';
+    kv.textContent = 'Host: ' + host;
+    el.appendChild(kv);
 
     const row = document.createElement('div'); row.className = 'row';
-    const openTarget = info.hostname ? info.hostname : info.ip;
-    const linkLocal  = document.createElement('a'); linkLocal.className = 'btn btn-primary'; linkLocal.href = `http://${openTarget}/local`; linkLocal.textContent = 'Lokale UI';
-    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-secondary'; linkHosted.href = withBase(`?device=http://${openTarget}`) + (forceHttp ? (withBase(`?`).includes('?') ? '&' : '?') + 'insecure=1' : ''); linkHosted.textContent = 'In der Oberfläche öffnen';
-    linkLocal.target = '_blank'; linkHosted.target = '_self';
-    row.appendChild(linkHosted); row.appendChild(linkLocal);
+    const openLocal  = document.createElement('a'); openLocal.className = 'btn btn-primary'; openLocal.href = `http://${host}/local`; openLocal.textContent = 'Lokale UI'; openLocal.target = '_blank';
+    const openScan   = document.createElement('a'); openScan.className = 'btn btn-secondary'; openScan.href = `http://${host}/discover`; openScan.textContent = 'Lokaler Scanner'; openScan.target = '_blank';
+    row.appendChild(openLocal); row.appendChild(openScan);
     el.appendChild(row);
 
     gridEl.appendChild(el);
   }
 
-  function withBase(pathAndQuery) {
-    const base = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
-    return base.replace(/index\.html$/, '') + pathAndQuery.replace(/^\/?/, '');
-  }
-
-  async function fetchWithTimeout(resource, options = {}) {
-    const { timeoutMs = 1500, ...opts } = options;
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(resource, { ...opts, signal: controller.signal, cache: 'no-store', mode: 'cors' });
-      clearTimeout(id);
-      return res;
-    } catch (e) {
-      clearTimeout(id);
-      throw e;
-    }
-  }
-
-  async function tryFetchStatus(ipOrHost) {
-    // Avoid mixed active content when this page is served over HTTPS.
-    // Browsers block fetch/XHR to http:// addresses from a secure context.
-    // In that case we immediately fall back to the image-based probe below.
-    // Some browsers also enforce Private Network Access preflights; we don't rely on JSON here.
-    if (window.isSecureContext && window.location.protocol === 'https:' && !forceHttp) {
-      return { ok: false, error: new Error('mixed-content-blocked') };
-    }
-    try {
-      const res = await fetchWithTimeout(`http://${ipOrHost}/api/status`, { timeoutMs: 1500 });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      return {
-        ok: true,
-        info: {
-          ip: ipOrHost,
-          name: data.device || 'OBEGRÄNSAD-X',
-          version: data.version || undefined,
-          ssid: data.ssid || undefined,
-          hostname: (data.hostname ? `${data.hostname}.local` : undefined),
-        }
-      };
-    } catch (e) {
-      return { ok: false, error: e };
-    }
-  }
-
-  function probeViaImage(ipOrHost) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const timer = setTimeout(() => { cleanup(); resolve(false); }, 1600);
-      function cleanup() { img.onload = null; img.onerror = null; clearTimeout(timer); }
-      img.onload = () => { cleanup(); resolve(true); };
-      img.onerror = () => { cleanup(); resolve(false); };
-      // random to avoid cache
-      img.src = `http://${ipOrHost}/api/healthz.gif?ts=${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    });
-  }
-
-  async function checkIpForDevice(ipOrHost) {
-    // First try JSON (best case if browser allows PNA from HTTPS)
-    const json = await tryFetchStatus(ipOrHost);
-    if (json.ok) return json.info;
-
-    // Fallback: try an image ping. We cannot read metadata then.
-    const ok = await probeViaImage(ipOrHost);
-    if (ok) {
-      return { ip: ipOrHost, name: 'OBEGRÄNSAD-X' };
-    }
-    return null;
-  }
-
-  function getAutoSubnets() {
-    // Heuristics: try the most common home subnets
-    return ['192.168.0', '192.168.1', '10.0.0', '10.1.1'];
-  }
-
-  async function scanSubnet(prefix, onProgress) {
-    const concurrency = 32;
-    let current = 0; let done = 0; const total = 254; // 1..254
-
-    return new Promise((resolve) => {
-      const next = async () => {
-        if (current >= 254) return;
-        const i = ++current;
-        const ip = `${prefix}.${i}`;
-        try {
-          const info = await checkIpForDevice(ip);
-          if (info && !discoveredByIp.has(ip)) {
-            discoveredByIp.set(ip, info);
-            renderDeviceCard(info);
-          }
-        } catch { /* ignore */ }
-        finally {
-          done++; onProgress(done, total);
-          if (current < 254) next();
-          else if (done >= total) resolve();
-        }
-      };
-      for (let k = 0; k < Math.min(concurrency, total); k++) next();
-    });
-  }
-
-  async function runScan() {
-    if (isScanning) return; isScanning = true; gridEl.innerHTML = ''; discoveredByIp.clear(); updateProgress(0, 1);
-    footerNote.textContent = 'Scanne lokales Netzwerk… dies kann 10–30 Sekunden dauern.';
-
-    const selected = document.getElementById('subnetSelect').value;
-    const prefixes = selected === 'auto' ? getAutoSubnets() : [selected];
-
-    let totalPrefixes = prefixes.length; let completed = 0;
-    for (const p of prefixes) {
-      await scanSubnet(p, (d,t) => {
-        const totalDone = (completed * 254) + d;
-        const totalAll = totalPrefixes * 254;
-        updateProgress(totalDone, totalAll);
-      });
-      completed++;
-    }
-
-    if (discoveredByIp.size === 0) {
-      const hint = 'Hinweis: Diese Seite läuft über HTTPS. Aus Sicherheitsgründen blockiert der Browser direkte HTTP-Anfragen in dein LAN. ' +
-                   'Öffne stattdessen den lokalen Scanner auf deinem Gerät unter <span class="warn">http://[DEIN-GERÄT]/discover</span>. ' +
-                   'Du kannst auch die IP/den Hostnamen oben eingeben oder <span class="warn">http://obegraensad-x.local</span> versuchen (mDNS).';
-      footerNote.innerHTML = hint;
-    } else {
-      footerNote.textContent = `Fertig – ${discoveredByIp.size} Gerät(e) gefunden.`;
-    }
-    isScanning = false;
-  }
-
   function addManualIp() {
     const value = (document.getElementById('manualIp').value || '').trim();
     if (!value) return;
-    // accept IP like 192.168.1.23 or hostname like obegraensad-x.local
     const looksLikeIp = /^\d+\.\d+\.\d+\.\d+$/.test(value);
     const looksLikeHost = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/i.test(value);
     if (!looksLikeIp && !looksLikeHost) return;
-    if (discoveredByIp.has(value)) return;
-    checkIpForDevice(value).then(info => {
-      if (info) { discoveredByIp.set(value, info); renderDeviceCard(info); }
-    });
+    renderLinkCard(value);
   }
 
-  function tryDeviceFromQuery() {
+  function initFromQuery() {
     const url = new URL(window.location.href);
     const device = url.searchParams.get('device');
     if (!device) return;
     try {
       const u = new URL(device);
       const host = u.hostname;
-      if (host) {
-        checkIpForDevice(host).then(info => {
-          if (info) { discoveredByIp.set(host, info); renderDeviceCard(info); }
-        });
-      }
+      if (host) renderLinkCard(host);
     } catch (_) { /* ignore */ }
   }
 
-  document.getElementById('scanBtn').addEventListener('click', runScan);
   document.getElementById('addBtn').addEventListener('click', addManualIp);
+  document.getElementById('scanBtn').addEventListener('click', () => {
+    footerNote.innerHTML = 'Öffne den lokalen Scanner auf deinem Gerät: <span class="warn">http://[DEIN-GERÄT]/discover</span> (z. B. <span class="warn">http://obegraensad-x.local/discover</span>).';
+  });
 
-  // On load: only use hostname/device from query; do not auto-scan
-  tryDeviceFromQuery();
+  initFromQuery();
 
-  // Initialize insecure (HTTP) override based on localStorage or ?insecure=1
-  const forceEl = document.getElementById('forceHttp');
-  const params = new URL(window.location.href).searchParams;
-  forceHttp = (localStorage.getItem('ox_force_http') === '1') || (params.get('insecure') === '1');
-  if (forceEl) {
-    forceEl.checked = forceHttp;
-    forceEl.addEventListener('change', () => {
-      forceHttp = forceEl.checked;
-      localStorage.setItem('ox_force_http', forceHttp ? '1' : '0');
-    });
-  }
-
-  // Footer hints depending on context and override
-  if (window.isSecureContext && window.location.protocol === 'https:') {
-    if (!forceHttp) {
-      footerNote.innerHTML = 'Tipp: Aktiviere „HTTP‑Fetch erzwingen“, um direkte <span class="warn">http://</span>-Abfragen zu versuchen. ' +
-        'Browser können dies blockieren.';
-    } else {
-      footerNote.innerHTML = 'Falls Abfragen fehlschlagen: In den Seiteneinstellungen <span class="warn">„Unsichere Inhalte zulassen“</span> aktivieren und neu laden.';
-    }
-  } else {
-    footerNote.textContent = 'Tipp: Gib den Hostnamen ein (z. B. obegraensad-x-abcdef.local) oder öffne die Geräte-Seite und folge dem Link.';
-  }
+  footerNote.innerHTML = 'Hinweis: Diese Seite lädt keine Inhalte aus deinem LAN und erzeugt daher keine Mixed-Content-Warnungen. Nutze die Links, um die lokalen Seiten zu öffnen.';
   </script>
 </body>
 </html>
