@@ -588,7 +588,7 @@ void WebServerManager::handleOptions() {
 void WebServerManager::handlePing() {
     // Small GIF fingerprint for discovery from HTTPS UIs via <img>
     setCORSHeaders();
-    server.send_P(200, "image/gif", OBEGRAENSAD_PING_GIF, sizeof(OBEGRAENSAD_PING_GIF));
+    server.send_P(200, "image/gif", reinterpret_cast<const char*>(OBEGRAENSAD_PING_GIF), sizeof(OBEGRAENSAD_PING_GIF));
 }
 
 void WebServerManager::setCORSHeaders() {
