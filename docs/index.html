@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OBEGRÄNSAD-X – Geräte im Netzwerk</title>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --primary: #667eea;
+      --primary-600: #5568d3;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --card: #ffffff;
+      --card-muted: #f3f4f6;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); min-height: 100vh; color: var(--text);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .container { max-width: 980px; width: 100%; }
+    .panel {
+      background: var(--card); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    .header { padding: 28px 28px 12px; }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 14px; }
+    .controls {
+      display: flex; gap: 12px; flex-wrap: wrap; padding: 16px 28px 0;
+    }
+    .controls > * { flex: 1; min-width: 220px; }
+    .input, .select { width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 15px; }
+    .btn { border: 0; border-radius: 10px; padding: 12px 16px; font-weight: 600; cursor: pointer; font-size: 15px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-600); }
+    .btn-secondary { background: #e5e7eb; color: var(--text); }
+    .grid { padding: 24px 28px 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
+    .card h3 { margin: 0 0 6px; font-size: 18px; }
+    .kv { margin: 6px 0; font-size: 14px; color: var(--muted); }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: var(--card-muted); padding: 6px 8px; border-radius: 999px; color: #111827; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+    .footer { padding: 8px 28px 24px; color: #4b5563; font-size: 12px; }
+    .progress { height: 6px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin: 10px 28px 0; }
+    .bar { height: 100%; width: 0; background: var(--primary); transition: width .2s ease; }
+    .warn { color: #b45309; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <div class="header">
+        <h1>OBEGRÄNSAD-X</h1>
+        <p class="subtitle">Suche nach Geräten im lokalen Netzwerk</p>
+      </div>
+      <div class="controls">
+        <select id="subnetSelect" class="select">
+          <option value="auto">Automatisch – gängige Subnetze (192.168.0/1, 10.0.0, 10.1.1)</option>
+          <option value="192.168.0">192.168.0.0/24</option>
+          <option value="192.168.1">192.168.1.0/24</option>
+          <option value="10.0.0">10.0.0.0/24</option>
+          <option value="10.1.1">10.1.1.0/24</option>
+        </select>
+        <button id="scanBtn" class="btn btn-primary">Scan starten</button>
+        <div style="display:flex; gap:8px;">
+          <input id="manualIp" class="input" placeholder="IP-Adresse hinzufügen, z. B. 192.168.0.23" />
+          <button id="addBtn" class="btn btn-secondary">Hinzufügen</button>
+        </div>
+      </div>
+      <div class="progress"><div id="progressBar" class="bar"></div></div>
+      <div id="grid" class="grid"></div>
+      <div class="footer" id="footerNote"></div>
+    </div>
+  </div>
+
+  <script>
+  const gridEl = document.getElementById('grid');
+  const progressEl = document.getElementById('progressBar');
+  const footerNote = document.getElementById('footerNote');
+
+  const discoveredByIp = new Map();
+  let isScanning = false;
+
+  function updateProgress(done, total) {
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    progressEl.style.width = pct + '%';
+  }
+
+  function renderDeviceCard(info) {
+    const existing = document.getElementById('dev-' + info.ip.replaceAll('.', '-'));
+    if (existing) return;
+
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.id = 'dev-' + info.ip.replaceAll('.', '-');
+
+    const title = document.createElement('h3');
+    title.textContent = info.name || 'OBEGRÄNSAD-X';
+    el.appendChild(title);
+
+    const kv1 = document.createElement('div'); kv1.className = 'kv'; kv1.textContent = 'IP: ' + info.ip; el.appendChild(kv1);
+    if (info.version) { const kv2 = document.createElement('div'); kv2.className = 'kv'; kv2.textContent = 'Version: ' + info.version; el.appendChild(kv2); }
+    if (info.ssid)    { const kv3 = document.createElement('div'); kv3.className = 'kv'; kv3.textContent = 'WLAN: ' + info.ssid; el.appendChild(kv3); }
+
+    const chip = document.createElement('div'); chip.className = 'chip'; chip.innerHTML = '<span class="dot"></span> erreichbar'; el.appendChild(chip);
+
+    const row = document.createElement('div'); row.className = 'row';
+    const linkHosted = document.createElement('a'); linkHosted.className = 'btn btn-primary'; linkHosted.href = withBase(`?device=http://${info.ip}`); linkHosted.textContent = 'In der Oberfläche öffnen';
+    const linkLocal  = document.createElement('a'); linkLocal.className = 'btn btn-secondary'; linkLocal.href = `http://${info.ip}/local`; linkLocal.textContent = 'Lokale UI';
+    linkLocal.target = '_blank'; linkHosted.target = '_self';
+    row.appendChild(linkHosted); row.appendChild(linkLocal);
+    el.appendChild(row);
+
+    gridEl.appendChild(el);
+  }
+
+  function withBase(pathAndQuery) {
+    const base = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+    return base.replace(/index\.html$/, '') + pathAndQuery.replace(/^\/?/, '');
+  }
+
+  async function fetchWithTimeout(resource, options = {}) {
+    const { timeoutMs = 1500, ...opts } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(resource, { ...opts, signal: controller.signal, cache: 'no-store', mode: 'cors' });
+      clearTimeout(id);
+      return res;
+    } catch (e) {
+      clearTimeout(id);
+      throw e;
+    }
+  }
+
+  async function tryFetchStatus(ip) {
+    try {
+      const res = await fetchWithTimeout(`http://${ip}/api/status`, { timeoutMs: 1500 });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return {
+        ok: true,
+        info: {
+          ip,
+          name: data.device || 'OBEGRÄNSAD-X',
+          version: data.version || undefined,
+          ssid: data.ssid || undefined,
+        }
+      };
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  }
+
+  function probeViaImage(ip) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const timer = setTimeout(() => { cleanup(); resolve(false); }, 1600);
+      function cleanup() { img.onload = null; img.onerror = null; clearTimeout(timer); }
+      img.onload = () => { cleanup(); resolve(true); };
+      img.onerror = () => { cleanup(); resolve(false); };
+      // random to avoid cache
+      img.src = `http://${ip}/api/ping.gif?ts=${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    });
+  }
+
+  async function checkIpForDevice(ip) {
+    // First try JSON (best case if browser allows PNA from HTTPS)
+    const json = await tryFetchStatus(ip);
+    if (json.ok) return json.info;
+
+    // Fallback: try an image ping. We cannot read metadata then.
+    const ok = await probeViaImage(ip);
+    if (ok) {
+      return { ip, name: 'OBEGRÄNSAD-X' };
+    }
+    return null;
+  }
+
+  function getAutoSubnets() {
+    // Heuristics: try the most common home subnets
+    return ['192.168.0', '192.168.1', '10.0.0', '10.1.1'];
+  }
+
+  async function scanSubnet(prefix, onProgress) {
+    const concurrency = 32;
+    let current = 0; let done = 0; const total = 254; // 1..254
+
+    return new Promise((resolve) => {
+      const next = async () => {
+        if (current >= 254) return;
+        const i = ++current;
+        const ip = `${prefix}.${i}`;
+        try {
+          const info = await checkIpForDevice(ip);
+          if (info && !discoveredByIp.has(ip)) {
+            discoveredByIp.set(ip, info);
+            renderDeviceCard(info);
+          }
+        } catch { /* ignore */ }
+        finally {
+          done++; onProgress(done, total);
+          if (current < 254) next();
+          else if (done >= total) resolve();
+        }
+      };
+      for (let k = 0; k < Math.min(concurrency, total); k++) next();
+    });
+  }
+
+  async function runScan() {
+    if (isScanning) return; isScanning = true; gridEl.innerHTML = ''; discoveredByIp.clear(); updateProgress(0, 1);
+    footerNote.textContent = 'Scanne lokales Netzwerk… dies kann 10–30 Sekunden dauern.';
+
+    const selected = document.getElementById('subnetSelect').value;
+    const prefixes = selected === 'auto' ? getAutoSubnets() : [selected];
+
+    let totalPrefixes = prefixes.length; let completed = 0;
+    for (const p of prefixes) {
+      await scanSubnet(p, (d,t) => {
+        const totalDone = (completed * 254) + d;
+        const totalAll = totalPrefixes * 254;
+        updateProgress(totalDone, totalAll);
+      });
+      completed++;
+    }
+
+    if (discoveredByIp.size === 0) {
+      footerNote.innerHTML = 'Keine Geräte gefunden. Browser blockieren ggf. Scans aus einer HTTPS-Seite. Füge dein Gerät oben per IP hinzu oder öffne <span class="warn">http://obegraensad-x.local</span> falls unterstützt.';
+    } else {
+      footerNote.textContent = `Fertig – ${discoveredByIp.size} Gerät(e) gefunden.`;
+    }
+    isScanning = false;
+  }
+
+  function addManualIp() {
+    const ip = (document.getElementById('manualIp').value || '').trim();
+    if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return;
+    if (discoveredByIp.has(ip)) return;
+    checkIpForDevice(ip).then(info => {
+      if (info) { discoveredByIp.set(ip, info); renderDeviceCard(info); }
+    });
+  }
+
+  function tryDeviceFromQuery() {
+    const url = new URL(window.location.href);
+    const device = url.searchParams.get('device');
+    if (!device) return;
+    try {
+      const u = new URL(device);
+      const ip = u.hostname;
+      if (ip) {
+        checkIpForDevice(ip).then(info => {
+          if (info) { discoveredByIp.set(ip, info); renderDeviceCard(info); }
+        });
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  document.getElementById('scanBtn').addEventListener('click', runScan);
+  document.getElementById('addBtn').addEventListener('click', addManualIp);
+
+  // Auto-run: add device from query, then start scan after a short delay
+  tryDeviceFromQuery();
+  setTimeout(runScan, 400);
+  </script>
+</body>
+</html>
