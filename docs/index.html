@@ -140,6 +140,12 @@
   }
 
   async function tryFetchStatus(ip) {
+    // Avoid mixed active content when this page is served over HTTPS.
+    // Browsers block fetch/XHR to http:// addresses from a secure context.
+    // In that case we immediately fall back to the image-based probe below.
+    if (window.isSecureContext && window.location.protocol === 'https:') {
+      return { ok: false, error: new Error('mixed-content-blocked') };
+    }
     try {
       const res = await fetchWithTimeout(`http://${ip}/api/status`, { timeoutMs: 1500 });
       if (!res.ok) throw new Error('HTTP ' + res.status);
