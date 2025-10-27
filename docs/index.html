@@ -144,6 +144,7 @@
     // Avoid mixed active content when this page is served over HTTPS.
     // Browsers block fetch/XHR to http:// addresses from a secure context.
     // In that case we immediately fall back to the image-based probe below.
+    // Some browsers also enforce Private Network Access preflights; we don't rely on JSON here.
     if (window.isSecureContext && window.location.protocol === 'https:') {
       return { ok: false, error: new Error('mixed-content-blocked') };
     }
@@ -240,7 +241,10 @@
     }
 
     if (discoveredByIp.size === 0) {
-      footerNote.innerHTML = 'Keine Geräte gefunden. Browser blockieren ggf. Scans aus einer HTTPS-Seite. Füge dein Gerät oben per IP/Hostname hinzu oder öffne <span class="warn">http://obegraensad-x.local</span> falls unterstützt. Wenn uBlock Origin aktiv ist, erlaube diese Seite.';
+      const hint = 'Hinweis: Diese Seite läuft über HTTPS. Aus Sicherheitsgründen blockiert der Browser direkte HTTP-Anfragen in dein LAN. ' +
+                   'Öffne stattdessen den lokalen Scanner auf deinem Gerät unter <span class="warn">http://[DEIN-GERÄT]/discover</span>. ' +
+                   'Du kannst auch die IP/den Hostnamen oben eingeben oder <span class="warn">http://obegraensad-x.local</span> versuchen (mDNS).';
+      footerNote.innerHTML = hint;
     } else {
       footerNote.textContent = `Fertig – ${discoveredByIp.size} Gerät(e) gefunden.`;
     }
@@ -280,7 +284,13 @@
 
   // On load: only use hostname/device from query; do not auto-scan
   tryDeviceFromQuery();
-  footerNote.textContent = 'Tipp: Gib den Hostnamen ein (z. B. obegraensad-x-abcdef.local) oder öffne die Geräte-Seite und folge dem Link.';
+  // Promote the HTTP-local discovery flow when running under HTTPS
+  if (window.isSecureContext && window.location.protocol === 'https:') {
+    footerNote.innerHTML = 'Tipp: Öffne den lokalen Scanner deines Geräts unter <span class="warn">http://[IP-ODER-HOSTNAME]/discover</span> ' +
+      'und nutze dann „In der Oberfläche öffnen“. Alternativ kannst du oben die IP/den Hostnamen eingeben.';
+  } else {
+    footerNote.textContent = 'Tipp: Gib den Hostnamen ein (z. B. obegraensad-x-abcdef.local) oder öffne die Geräte-Seite und folge dem Link.';
+  }
   </script>
 </body>
 </html>
