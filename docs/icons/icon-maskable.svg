@@ -7,6 +7,7 @@
   </defs>
   <rect width="512" height="512" rx="96" fill="url(#g)"/>
   <g fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Keep inside maskable safe zone -->
     <circle cx="208" cy="256" r="64"/>
     <path d="M304 208 L368 304 M368 208 L304 304"/>
   </g>

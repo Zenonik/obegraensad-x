@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "serve:docs": "npx --yes http-server ./docs -p 5173 -c-1 --silent"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
