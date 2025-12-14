@@ -52,6 +52,7 @@ void updateBrightness();
 void checkWiFi();
 void updateWeather();
 void performOTAUpdate();
+void showOTAError();
 
 // ======================================================
 // 🧩 SETUP
@@ -278,21 +279,29 @@ void updateDisplay()
 
         // Map RSSI to number of arcs (0..3). Dot is always drawn.
         int arcs = 0;
-        if (clamped > -80) arcs = 1;     // weak
-        if (clamped > -67) arcs = 2;     // medium
-        if (clamped > -55) arcs = 3;     // strong
+        if (clamped > -80)
+            arcs = 1; // weak
+        if (clamped > -67)
+            arcs = 2; // medium
+        if (clamped > -55)
+            arcs = 3; // strong
 
-        const int cx = 8;   // center x
-        const int cy = 15;  // baseline y (bottom)
+        const int cx = 8;  // center x
+        const int cy = 15; // baseline y (bottom)
 
-        auto drawArc = [&](int radius) {
-            for (int dx = -radius; dx <= radius; ++dx) {
+        auto drawArc = [&](int radius)
+        {
+            for (int dx = -radius; dx <= radius; ++dx)
+            {
                 int x = cx + dx;
-                if (x < 0 || x > 15) continue;
+                if (x < 0 || x > 15)
+                    continue;
                 float inside = (float)(radius * radius - dx * dx);
-                if (inside < 0.0f) continue;
+                if (inside < 0.0f)
+                    continue;
                 int y = cy - (int)lroundf(sqrtf(inside));
-                if (y >= 0 && y < 16) display.setPixel((uint8_t)x, (uint8_t)y, true);
+                if (y >= 0 && y < 16)
+                    display.setPixel((uint8_t)x, (uint8_t)y, true);
             }
         };
 
@@ -300,15 +309,19 @@ void updateDisplay()
         // Center dot
         display.setPixel(cx, cy, true);
         // Arcs from inner to outer
-        if (arcs >= 1) drawArc(3);
-        if (arcs >= 2) drawArc(6);
-        if (arcs >= 3) drawArc(9);
+        if (arcs >= 1)
+            drawArc(3);
+        if (arcs >= 2)
+            drawArc(6);
+        if (arcs >= 3)
+            drawArc(9);
         display.update();
         break;
     }
 
     case 8: // 💚 Matrix Rain
-        if (!matrixRain.isRunning()) matrixRain.start();
+        if (!matrixRain.isRunning())
+            matrixRain.start();
         break;
 
     case 9: // ⚫ Display aus (immer letzter Modus)
@@ -390,91 +403,130 @@ void updateBrightness()
 // ======================================================
 void performOTAUpdate()
 {
-    Serial.println("[OTA] Firmware-Update angefordert (Web API)");
+    Serial.println("[OTA] Button OTA gestartet");
 
     display.clear();
-    display.drawText2x2("UPDT");
     display.update();
 
-    // Versionscheck
+    WiFiClientSecure client;
+    client.setInsecure();
+
     HTTPClient http;
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    http.begin(OTA_VERSION_URL);
+
+    if (!http.begin(client, OTA_FIRMWARE_URL))
+    {
+        showOTAError();
+        return;
+    }
+
     int code = http.GET();
-
-    if (code != 200) {
-        Serial.printf("[OTA] Fehler beim Abruf der Version (%d)\n", code);
-        display.clear();
-        display.drawText2x2("ERR");
-        display.update();
-        delay(1500);
+    if (code != HTTP_CODE_OK)
+    {
+        Serial.printf("[OTA] HTTP Fehler %d\n", code);
         http.end();
+        showOTAError();
         return;
     }
 
-    String newVersion = http.getString();
-    newVersion.trim();
-    Serial.printf("[OTA] Online-Version: %s | Lokal: %s\n", newVersion.c_str(), CURRENT_VERSION);
-    http.end();
+    int total = http.getSize();
+    Serial.printf("[OTA] Firmwaregröße: %d Bytes\n", total);
 
-    if (newVersion == CURRENT_VERSION) {
-        Serial.println("[OTA] Firmware ist aktuell.");
-        display.clear();
-        display.drawText2x2("OK");
-        display.update();
-        delay(1500);
+    if (total <= 0)
+    {
+        Serial.println("[OTA] Ungültige Firmwaregröße");
+        http.end();
+        showOTAError();
         return;
     }
 
-    Serial.println("[OTA] Neue Version verfügbar! Starte Update...");
+    int lastDisplayedProgress = -1;
 
-    // OTA mit HTTPClient + Update.writeStream()
-    WiFiClientSecure client;
-    client.setInsecure();  // HTTPS akzeptiert alle Zertifikate
+    display.clear();
+    display.drawDigit(0, 7, 4);
+    display.update();
 
-    HTTPClient httpUpdate;
-    httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    httpUpdate.begin(client, OTA_FIRMWARE_URL);
-    int httpCode = httpUpdate.GET();
-
-    if (httpCode != 200) {
-        Serial.printf("[OTA] Fehler beim Firmware-Download (%d)\n", httpCode);
-        display.clear();
-        display.drawText2x2("ERR");
-        display.update();
-        delay(1500);
-        httpUpdate.end();
+    if (!Update.begin(total))
+    {
+        Serial.printf("[OTA] Update.begin fehlgeschlagen: %s\n", Update.errorString());
+        http.end();
+        showOTAError();
         return;
     }
 
-    int len = httpUpdate.getSize();
-    if (!Update.begin(len)) {
-        Serial.println("[OTA] Nicht genug Speicher für Update!");
-        display.clear();
-        display.drawText2x2("ERR");
-        display.update();
-        delay(1500);
-        httpUpdate.end();
-        return;
-    }
+    Update.onProgress([total, &lastDisplayedProgress](size_t progress, size_t)
+                      {
+        int percent = (progress * 100) / total;
+        
+        int progressStep = percent / 10;
+        if (progressStep != lastDisplayedProgress) {
+            lastDisplayedProgress = progressStep;
+            Serial.printf("[OTA] Fortschritt: %d%%\n", percent);
+            
+            display.clear();
+            
+            // Draw percent digits using available drawDigit() function
+            // Position: centered on 16x16 display
+            if (percent >= 100) {
+                // "100" - three digits
+                display.drawDigit(1, 1, 4);   // "1" at x=1
+                display.drawDigit(0, 6, 4);   // "0" at x=6
+                display.drawDigit(0, 11, 4);  // "0" at x=11
+            } else if (percent >= 10) {
+                // "10-99" - two digits
+                display.drawDigit(percent / 10, 3, 4);      // tens digit
+                display.drawDigit(percent % 10, 9, 4);      // ones digit
+            } else {
+                // "0-9" - one digit, centered
+                display.drawDigit(percent, 7, 4);
+            }
+            
+            display.update();
+        } });
 
-    WiFiClient *stream = httpUpdate.getStreamPtr();
+    WiFiClient *stream = http.getStreamPtr();
+
     size_t written = Update.writeStream(*stream);
 
-    if (Update.end() && Update.isFinished()) {
-        Serial.printf("[OTA] Update erfolgreich (%d Bytes)\n", written);
-        display.clear();
-        display.animateCheckmark();
-        display.update();
-        delay(1500);
-        ESP.restart();
-    } else {
-        Serial.println("[OTA] Fehler beim Schreiben der Firmware!");
-        display.clear();
-        display.drawText2x2("ERR");
-        display.update();
-        delay(1500);
+    display.clear();
+    display.drawDigit(1, 1, 4);
+    display.drawDigit(0, 6, 4);
+    display.drawDigit(0, 11, 4);
+    display.update();
+
+    Serial.printf("[OTA] Geschrieben: %d / %d Bytes\n", written, total);
+
+    if (written != total)
+    {
+        Serial.printf("[OTA] Unvollständiger Download: %d von %d Bytes\n", written, total);
+        Update.abort();
+        http.end();
+        showOTAError();
+        return;
     }
 
-    httpUpdate.end();
+    if (!Update.end(true))
+    {
+        Serial.printf("[OTA] Update.end fehlgeschlagen: %s\n", Update.errorString());
+        http.end();
+        showOTAError();
+        return;
+    }
+
+    http.end();
+
+    Serial.printf("[OTA] Update abgeschlossen (%d Bytes)\n", written);
+    display.clear();
+    display.animateCheckmark();
+    display.update();
+    delay(1500);
+    ESP.restart();
+}
+
+void showOTAError()
+{
+    display.clear();
+    display.drawText2x2("ERR");
+    display.update();
+    delay(1500);
 }
