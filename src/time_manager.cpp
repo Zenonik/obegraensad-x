@@ -4,94 +4,120 @@
 
 TimeManager timeManager;
 
-TimeManager::TimeManager() : synced(false), lastSync(0) {
+TimeManager::TimeManager() : synced(false), lastSync(0)
+{
     memset(&timeinfo, 0, sizeof(timeinfo));
 }
 
-bool TimeManager::begin() {
+bool TimeManager::begin()
+{
     Serial.println("Initialisiere Zeit-Synchronisation...");
-    
+
     // Zeitzone konfigurieren
     configTime(0, 0, NTP_SERVER);
     setenv("TZ", TIMEZONE, 1);
     tzset();
-    
-    return syncTime();
+
+    return syncTime(true);
 }
 
-bool TimeManager::syncTime() {
-    display.drawText2x2("TIME");
+bool TimeManager::syncTime(bool showOnDisplay)
+{
+    if (showOnDisplay)
+    {
+        display.drawText2x2("TIME");
+    }
+
     Serial.print("Synchronisiere mit NTP-Server '" + String(NTP_SERVER) + "'...");
-    
+
     int retry = 0;
-    while (!getLocalTime(&timeinfo) && retry < 15) {
+    while (!getLocalTime(&timeinfo) && retry < 15)
+    {
         Serial.print(".");
         delay(500);
         retry++;
     }
-    
-    if (retry < 15) {
+
+    if (retry < 15)
+    {
         synced = true;
         lastSync = millis();
         Serial.println(" OK!");
-        Serial.printf("Zeit: %02d:%02d:%02d\n", 
-                     timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-        display.animateCheckmark();   
+        Serial.printf("Zeit: %02d:%02d:%02d\n",
+                      timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        if (showOnDisplay)
+        {
+            display.animateCheckmark();
+        }
+
         return true;
-    } else {
+    }
+    else
+    {
         synced = false;
         Serial.println(" FEHLER!");
         return false;
     }
 }
 
-bool TimeManager::update() {
+bool TimeManager::update()
+{
     // Re-sync jede Stunde (Grund: Sommer/Winterzeit)
-    if (millis() - lastSync > 3600000) {
-        return syncTime();
+    if (millis() - lastSync > 3600000)
+    {
+        return syncTime(false);
     }
-    
+
     return getLocalTime(&timeinfo);
 }
 
-uint8_t TimeManager::getHour() {
+uint8_t TimeManager::getHour()
+{
     return timeinfo.tm_hour;
 }
 
-uint8_t TimeManager::getMinute() {
+uint8_t TimeManager::getMinute()
+{
     return timeinfo.tm_min;
 }
 
-uint8_t TimeManager::getSecond() {
+uint8_t TimeManager::getSecond()
+{
     return timeinfo.tm_sec;
 }
 
-uint8_t TimeManager::getDay() {
+uint8_t TimeManager::getDay()
+{
     return timeinfo.tm_mday;
 }
 
-uint8_t TimeManager::getMonth() {
+uint8_t TimeManager::getMonth()
+{
     return timeinfo.tm_mon + 1;
 }
 
-uint16_t TimeManager::getYear() {
+uint16_t TimeManager::getYear()
+{
     return timeinfo.tm_year + 1900;
 }
 
-bool TimeManager::isSynced() {
+bool TimeManager::isSynced()
+{
     return synced;
 }
 
-String TimeManager::getTimeString() {
+String TimeManager::getTimeString()
+{
     char buffer[9];
-    snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", 
+    snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d",
              timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
     return String(buffer);
 }
 
-String TimeManager::getDateString() {
+String TimeManager::getDateString()
+{
     char buffer[11];
-    snprintf(buffer, sizeof(buffer), "%02d.%02d.%04d", 
+    snprintf(buffer, sizeof(buffer), "%02d.%02d.%04d",
              timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
     return String(buffer);
 }

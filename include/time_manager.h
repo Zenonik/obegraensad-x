@@ -26,7 +26,7 @@ private:
     bool synced;
     unsigned long lastSync;
     
-    bool syncTime();
+    bool syncTime(bool showOnDisplay);
 };
 
 extern TimeManager timeManager;
