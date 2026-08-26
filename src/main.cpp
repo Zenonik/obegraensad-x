@@ -277,44 +277,34 @@ void updateDisplay()
         int rssi = wifiConnection.getRSSI();
         int clamped = constrain(rssi, -90, -30);
 
-        // Map RSSI to number of arcs (0..3). Dot is always drawn.
-        int arcs = 0;
+        // Map RSSI auf 1..4 Balken (verbunden => mindestens 1 Balken)
+        int level = 1;
         if (clamped > -80)
-            arcs = 1; // weak
+            level = 2; // schwach
         if (clamped > -67)
-            arcs = 2; // medium
+            level = 3; // mittel
         if (clamped > -55)
-            arcs = 3; // strong
+            level = 4; // stark
 
-        const int cx = 8;  // center x
-        const int cy = 15; // baseline y (bottom)
-
-        auto drawArc = [&](int radius)
-        {
-            for (int dx = -radius; dx <= radius; ++dx)
-            {
-                int x = cx + dx;
-                if (x < 0 || x > 15)
-                    continue;
-                float inside = (float)(radius * radius - dx * dx);
-                if (inside < 0.0f)
-                    continue;
-                int y = cy - (int)lroundf(sqrtf(inside));
-                if (y >= 0 && y < 16)
-                    display.setPixel((uint8_t)x, (uint8_t)y, true);
-            }
-        };
+        const uint8_t barWidth = 2;
+        const uint8_t barGap = 1;
+        const uint8_t barHeights[4] = {3, 6, 9, 12};
+        const uint8_t baselineY = 15;
+        const uint8_t startX = 2;
 
         display.clear();
-        // Center dot
-        display.setPixel(cx, cy, true);
-        // Arcs from inner to outer
-        if (arcs >= 1)
-            drawArc(3);
-        if (arcs >= 2)
-            drawArc(6);
-        if (arcs >= 3)
-            drawArc(9);
+        uint8_t x = startX;
+        for (uint8_t i = 0; i < 4; ++i)
+        {
+            if (i < (uint8_t)level)
+            {
+                uint8_t h = barHeights[i];
+                for (uint8_t dx = 0; dx < barWidth; ++dx)
+                    for (uint8_t y = baselineY - h + 1; y <= baselineY; ++y)
+                        display.setPixel(x + dx, y, true);
+            }
+            x += barWidth + barGap;
+        }
         display.update();
         break;
     }

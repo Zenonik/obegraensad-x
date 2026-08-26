@@ -216,20 +216,28 @@ void Display::shiftOut() {
     for (int i = 0; i < 256; ++i) {
         digitalWrite(P_DI, hardwareBuffer[i] ? HIGH : LOW);
         digitalWrite(P_CLK, HIGH);
-        delayMicroseconds(4);
+        delayMicroseconds(10);
         digitalWrite(P_CLK, LOW);
-        delayMicroseconds(4);
+        delayMicroseconds(10);
     }
 }
 
 void Display::latch() {
-    delayMicroseconds(5);
+    delayMicroseconds(8);
     digitalWrite(P_CLA, HIGH);
-    delayMicroseconds(5);
+    delayMicroseconds(8);
     digitalWrite(P_CLA, LOW);
 }
 
 void Display::update() {
+    // Dreifach senden: ein einzelner Bit-Banging-Durchlauf glitcht gelegentlich
+    // (vermutlich am Ende der Schieberegisterkette), was sich aber durch eine
+    // erneute Übertragung zuverlässig korrigiert (siehe Modus-Wechsel-Test).
+    // Bei Pong (~16fps) bleibt davon immer noch reichlich Zeitpuffer übrig.
+    shiftOut();
+    latch();
+    shiftOut();
+    latch();
     shiftOut();
     latch();
 }
@@ -332,56 +340,61 @@ void Display::handleAsyncAnimation() {
 }
 
 void Display::startupAnimation() {
-    Serial.println("[Display] Startanimation: Stripe Sweep mit Kreis-Fadeout");
+    Serial.println("[Display] Startanimation: Spinner + Radar-Ping");
 
     clear(); update();
-    const int speed = 30;
+    const float cx = 7.5f, cy = 7.5f;
 
-    // Horizontaler Sweep
-    for (int step = 0; step <= 16; ++step) {
+    // Rotierender Spinner-Bogen (wie ein modernes Lade-Icon). Gegen Ende
+    // spiralt er einwärts (Radius -> 0), genau dort, wo der Radar-Ping
+    // gleich bei Radius 0 anfängt zu expandieren -- so gehen beide nahtlos
+    // ineinander über, ohne Schnitt.
+    setBrightness(220);
+    const float spinnerRadius = 6.0f;
+    const int spinSteps = 50;
+    const int spiralInSteps = 14;
+    const int spiralStart = spinSteps - spiralInSteps;
+    for (int i = 0; i < spinSteps; ++i) {
         clear();
-        for (int y = 0; y < 16; ++y)
-            for (int x = 0; x < step; ++x)
-                if ((x + y) % 2 == 0) setPixel(x, y, true);
-        setBrightness(150);
+        float baseAngle = i * (2.0f * PI / 14.0f);
+
+        float r = spinnerRadius;
+        if (i >= spiralStart) {
+            float t = (float)(i - spiralStart) / spiralInSteps;
+            r = spinnerRadius * (1.0f - t * t); // ease-in: schrumpft zum Schluss schneller
+        }
+
+        for (int a = 0; a < 6; ++a) {
+            float angle = baseAngle - a * 0.28f;
+            int x = (int)lroundf(cx + r * cosf(angle));
+            int y = (int)lroundf(cy + r * sinf(angle));
+            if (x >= 0 && x < 16 && y >= 0 && y < 16) setPixel((uint8_t)x, (uint8_t)y, true);
+        }
         update();
-        delay(speed);
+        delay(22);
     }
 
-    // Diagonale Streifenwelle
-    for (int frame = 0; frame < 24; ++frame) {
-        clear();
-        for (int y = 0; y < 16; ++y)
-            for (int x = 0; x < 16; ++x)
-                if ((x + y + frame) % 8 < 3) setPixel(x, y, true);
-        int b = 120 + (int)(80 * sin(frame * 0.4f));
-        setBrightness((uint8_t)b);
-        update();
-        delay(speed);
+    // Radar-Ping: zwei auslaufende, verblassende Ringe vom Zentrum
+    // (setzt die Bewegung des einwärts spiralenden Spinners direkt fort)
+    for (int wave = 0; wave < 2; ++wave) {
+        for (float r = 0.0f; r <= 10.4f; r += 0.8f) {
+            clear();
+            for (int y = 0; y < 16; ++y)
+                for (int x = 0; x < 16; ++x) {
+                    float d = sqrtf((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                    if (fabsf(d - r) < 0.6f) setPixel(x, y, true);
+                }
+            setBrightness((uint8_t)constrain(255 - (int)(r * 18.0f), 40, 255));
+            update();
+            delay(18);
+        }
     }
 
-    // Vertikale Lichtflut (unten -> oben)
-    for (int step = 15; step >= 0; --step) {
-        clear();
-        for (int y = step; y < 16; ++y)
-            for (int x = 0; x < 16; ++x)
-                if ((x + y + step) % 3 < 2) setPixel(x, y, true);
-        setBrightness(180);
-        update();
-        delay(speed);
-    }
-
-    // Kurzer Aufblitz
-    for (int i = 0; i < 2; ++i) {
-        setBrightness(255); update(); delay(80);
-        setBrightness(100); update(); delay(80);
-    }
-
-    // Kreisförmiges Ausblenden
-    fadeOutCircle();
+    brightness = settingsManager.getBrightness();
+    setBrightness(brightness);
 
     clear(); update();
-    Serial.println("[Display] Startanimation abgeschlossen (Kreis-Fadeout)");
+    Serial.println("[Display] Startanimation abgeschlossen (Spinner + Radar-Ping)");
 }
 
 void Display::fadeOutCircle() {
